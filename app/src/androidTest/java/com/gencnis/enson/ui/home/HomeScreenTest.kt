@@ -4,6 +4,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.gencnis.enson.model.TrackCategory
+import com.gencnis.enson.model.TrackIcon
+import com.gencnis.enson.model.TrackTone
+import com.gencnis.enson.model.TrackType
 import com.gencnis.enson.ui.theme.EnSonTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -145,7 +149,10 @@ class HomeScreenTest {
             .onNodeWithText("Bugün yaptım")
             .performClick()
 
-        assertEquals(42L, clickedTrackId)
+        assertEquals(
+            42L,
+            clickedTrackId
+        )
     }
 
     @Test

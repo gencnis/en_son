@@ -1,5 +1,6 @@
 package com.gencnis.enson.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -20,10 +21,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bed
+import androidx.compose.material.icons.outlined.Coffee
+import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.LocalFlorist
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -36,62 +46,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gencnis.enson.model.TrackCategory
+import com.gencnis.enson.model.TrackIcon
+import com.gencnis.enson.model.TrackTone
+import com.gencnis.enson.model.TrackType
 import com.gencnis.enson.ui.theme.CardPink
 import com.gencnis.enson.ui.theme.CardSage
 import com.gencnis.enson.ui.theme.CardYellow
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
+import com.gencnis.enson.ui.theme.Fraunces
 import com.gencnis.enson.ui.theme.MutedText
 import com.gencnis.enson.ui.theme.Plum
+import com.gencnis.enson.ui.theme.SoftBorder
+import com.gencnis.enson.ui.theme.SurfacePaper
 import com.gencnis.enson.ui.theme.WarmCream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.foundation.BorderStroke
-import com.gencnis.enson.ui.theme.Fraunces
-import com.gencnis.enson.ui.theme.SoftBorder
-import com.gencnis.enson.ui.theme.SurfacePaper
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bed
-import androidx.compose.material.icons.outlined.Coffee
-import androidx.compose.material.icons.outlined.FilterAlt
-import androidx.compose.material.icons.outlined.LocalFlorist
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Icon
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.outlined.Schedule
-
-
-enum class TrackCategory(val label: String) {
-    PERSONAL("Kişisel"),
-    HOME("Ev"),
-    OTHER("Diğer")
-}
-
-enum class TrackType {
-    NORMAL,
-    PERIOD_START
-}
-
-enum class TrackTone {
-    PINK,
-    SAGE,
-    YELLOW
-}
-
-enum class TrackIcon {
-    PERIOD,
-    PLANT,
-    BED,
-    COFFEE,
-    FILTER,
-    OTHER
-}
 
 data class TrackUiModel(
     val id: Long,
@@ -105,7 +82,9 @@ data class TrackUiModel(
     val scheduleText: String? = null
 )
 
-private enum class HomeFilter(val label: String) {
+private enum class HomeFilter(
+    val label: String
+) {
     ALL("Tümü"),
     PERSONAL("Kişisel"),
     HOME("Ev"),
@@ -141,7 +120,9 @@ fun HomeScreen(
     Scaffold(
         containerColor = WarmCream,
         bottomBar = {
-            Surface(color = WarmCream) {
+            Surface(
+                color = WarmCream
+            ) {
                 Button(
                     onClick = onCreateTrack,
                     modifier = Modifier
@@ -161,7 +142,7 @@ fun HomeScreen(
                 ) {
                     Text(
                         text = "+ Yeni takip",
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -183,22 +164,9 @@ fun HomeScreen(
         ) {
 
             item {
-                Column {
-                    Text(
-                        text = "En Son",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = DarkText,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = todayText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MutedText
-                    )
-                }
+                HomeHeader(
+                    todayText = todayText
+                )
             }
 
             item {
@@ -210,37 +178,61 @@ fun HomeScreen(
                 )
             }
 
-            if (tracks.isEmpty()) {
-
-                item {
-                    EmptyState()
+            when {
+                tracks.isEmpty() -> {
+                    item {
+                        EmptyState()
+                    }
                 }
 
-            } else if (visibleTracks.isEmpty()) {
-
-                item {
-                    FilterEmptyState()
+                visibleTracks.isEmpty() -> {
+                    item {
+                        FilterEmptyState()
+                    }
                 }
 
-            } else {
-
-                items(
-                    items = visibleTracks,
-                    key = { it.id }
-                ) { track ->
-
-                    TrackCard(
-                        track = track,
-                        onClick = {
-                            onTrackClick(track.id)
-                        },
-                        onQuickLog = {
-                            onQuickLog(track.id)
-                        }
-                    )
+                else -> {
+                    items(
+                        items = visibleTracks,
+                        key = { it.id }
+                    ) { track ->
+                        TrackCard(
+                            track = track,
+                            onClick = {
+                                onTrackClick(track.id)
+                            },
+                            onQuickLog = {
+                                onQuickLog(track.id)
+                            }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HomeHeader(
+    todayText: String
+) {
+    Column {
+        Text(
+            text = "En Son",
+            style = MaterialTheme.typography.displaySmall,
+            color = DarkText,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
+
+        Text(
+            text = todayText,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MutedText
+        )
     }
 }
 
@@ -252,15 +244,19 @@ private fun FilterRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .horizontalScroll(
+                rememberScrollState()
+            ),
+        horizontalArrangement =
+            Arrangement.spacedBy(6.dp)
     ) {
         HomeFilter.entries.forEach { filter ->
-
             val isSelected = selected == filter
 
             Surface(
-                onClick = { onSelected(filter) },
+                onClick = {
+                    onSelected(filter)
+                },
                 shape = RoundedCornerShape(12.dp),
                 color = if (isSelected) {
                     Plum
@@ -271,8 +267,8 @@ private fun FilterRow(
                     null
                 } else {
                     BorderStroke(
-                        1.dp,
-                        SoftBorder
+                        width = 1.dp,
+                        color = SoftBorder
                     )
                 }
             ) {
@@ -305,11 +301,7 @@ private fun TrackCard(
     onClick: () -> Unit,
     onQuickLog: () -> Unit
 ) {
-    val accentColor = when (track.tone) {
-        TrackTone.PINK -> CardPink
-        TrackTone.SAGE -> CardSage
-        TrackTone.YELLOW -> CardYellow
-    }
+    val accentColor = track.tone.color()
 
     Card(
         onClick = onClick,
@@ -320,7 +312,9 @@ private fun TrackCard(
         ),
         border = BorderStroke(
             width = 1.dp,
-            color = SoftBorder.copy(alpha = 0.72f)
+            color = SoftBorder.copy(
+                alpha = 0.72f
+            )
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp
@@ -335,7 +329,8 @@ private fun TrackCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
 
                 Surface(
@@ -344,13 +339,16 @@ private fun TrackCard(
                     color = accentColor
                 ) {
                     Box(
-                        contentAlignment = Alignment.Center
+                        contentAlignment =
+                            Alignment.Center
                     ) {
                         Icon(
-                            imageVector = track.iconVector(),
+                            imageVector =
+                                track.icon.vector(),
                             contentDescription = null,
                             tint = Plum,
-                            modifier = Modifier.size(20.dp)
+                            modifier =
+                                Modifier.size(20.dp)
                         )
                     }
                 }
@@ -362,12 +360,13 @@ private fun TrackCard(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-
                     Text(
                         text = track.name,
-                        style = MaterialTheme.typography.titleMedium,
+                        style =
+                            MaterialTheme.typography.titleMedium,
                         color = DarkText,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight =
+                            FontWeight.SemiBold
                     )
 
                     Spacer(
@@ -378,7 +377,8 @@ private fun TrackCard(
                         text = track.lastDateText?.let {
                             "Son kayıt  ·  $it"
                         } ?: "Henüz kayıt yok",
-                        style = MaterialTheme.typography.bodySmall,
+                        style =
+                            MaterialTheme.typography.bodySmall,
                         color = MutedText
                     )
                 }
@@ -396,30 +396,38 @@ private fun TrackCard(
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-
                     ElapsedTime(
                         days = track.elapsedDays
                     )
 
-                    if (track.scheduleText != null) {
-
+                    track.scheduleText?.let {
                         Spacer(
-                            modifier = Modifier.height(9.dp)
+                            modifier =
+                                Modifier.height(9.dp)
                         )
 
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = accentColor.copy(alpha = 0.78f)
+                            shape =
+                                RoundedCornerShape(12.dp),
+                            color =
+                                accentColor.copy(
+                                    alpha = 0.78f
+                                )
                         ) {
                             Text(
-                                text = track.scheduleText,
-                                modifier = Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 6.dp
-                                ),
-                                style = MaterialTheme.typography.labelMedium,
+                                text = it,
+                                modifier =
+                                    Modifier.padding(
+                                        horizontal = 10.dp,
+                                        vertical = 6.dp
+                                    ),
+                                style =
+                                    MaterialTheme
+                                        .typography
+                                        .labelMedium,
                                 color = DarkText,
-                                fontWeight = FontWeight.Medium
+                                fontWeight =
+                                    FontWeight.Medium
                             )
                         }
                     }
@@ -434,13 +442,15 @@ private fun TrackCard(
                     shape = RoundedCornerShape(14.dp),
                     color = Color.Transparent,
                     border = BorderStroke(
-                        1.dp,
-                        Plum.copy(alpha = 0.26f)
+                        width = 1.dp,
+                        color =
+                            Plum.copy(alpha = 0.26f)
                     )
                 ) {
                     Text(
                         text = if (
-                            track.type == TrackType.PERIOD_START
+                            track.type ==
+                            TrackType.PERIOD_START
                         ) {
                             "Başlangıç ekle"
                         } else {
@@ -452,7 +462,8 @@ private fun TrackCard(
                         ),
                         color = Plum,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight =
+                            FontWeight.SemiBold
                     )
                 }
             }
@@ -465,7 +476,6 @@ private fun ElapsedTime(
     days: Int?
 ) {
     when (days) {
-
         null -> {
             Text(
                 text = "Henüz kayıt yok",
@@ -500,7 +510,6 @@ private fun ElapsedTime(
             Row(
                 verticalAlignment = Alignment.Bottom
             ) {
-
                 Text(
                     text = days.toString(),
                     fontFamily = Fraunces,
@@ -528,23 +537,14 @@ private fun ElapsedTime(
     }
 }
 
-private fun elapsedText(days: Int?): String {
-    return when (days) {
-        null -> "Henüz kayıt yok"
-        0 -> "Bugün"
-        1 -> "Dün"
-        else -> "$days gün geçti"
-    }
-}
-
 @Composable
 private fun EmptyState() {
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment =
+            Alignment.CenterHorizontally
     ) {
 
         Surface(
@@ -556,7 +556,8 @@ private fun EmptyState() {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Schedule,
+                    imageVector =
+                        Icons.Outlined.Schedule,
                     contentDescription = null,
                     tint = Plum,
                     modifier = Modifier.size(30.dp)
@@ -564,69 +565,94 @@ private fun EmptyState() {
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(
+            modifier = Modifier.height(18.dp)
+        )
 
         Text(
             text = "Henüz takip yok",
-            style = MaterialTheme.typography.headlineSmall,
+            style =
+                MaterialTheme.typography.headlineSmall,
             color = DarkText,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
         Text(
             text =
                 "En son ne zaman yaptığını unutmak istemediğin şeyleri burada tutabilirsin.",
-            style = MaterialTheme.typography.bodyLarge,
+            style =
+                MaterialTheme.typography.bodyLarge,
             color = MutedText
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(
+            modifier = Modifier.height(26.dp)
+        )
 
         Text(
             text = "Başlamak için birkaç fikir",
             modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleMedium,
+            style =
+                MaterialTheme.typography.titleMedium,
             color = DarkText,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
 
-        listOf(
+        val suggestions = listOf(
             "Regl başlangıcı",
             "Çiçek sulama",
             "Çarşaf değişimi",
             "Kahve makinesi temizliği",
             "Filtre değişimi"
-        ).forEach { suggestion ->
+        )
 
-            Surface(
+        suggestions.forEach { suggestion ->
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White.copy(alpha = 0.60f)
+                    .padding(vertical = 7.dp),
+                verticalAlignment =
+                    Alignment.CenterVertically
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(
+                            color =
+                                Plum.copy(alpha = 0.42f),
+                            shape = CircleShape
+                        )
+                )
+
+                Spacer(
+                    modifier = Modifier.width(12.dp)
+                )
 
                 Text(
                     text = suggestion,
-                    modifier = Modifier.padding(
-                        horizontal = 16.dp,
-                        vertical = 14.dp
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style =
+                        MaterialTheme.typography.bodyLarge,
                     color = DarkText
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
 
         Text(
             text = "Veriler bu cihazda saklanır.",
-            style = MaterialTheme.typography.bodyMedium,
+            style =
+                MaterialTheme.typography.bodyMedium,
             color = MutedText
         )
     }
@@ -634,26 +660,30 @@ private fun EmptyState() {
 
 @Composable
 private fun FilterEmptyState() {
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 42.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment =
+            Alignment.CenterHorizontally
     ) {
-
         Text(
             text = "Bu kategoride takip yok",
-            style = MaterialTheme.typography.titleLarge,
+            style =
+                MaterialTheme.typography.titleLarge,
             color = DarkText,
             fontWeight = FontWeight.SemiBold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
 
         Text(
-            text = "Başka bir kategori seçebilir veya yeni bir takip oluşturabilirsin.",
-            style = MaterialTheme.typography.bodyLarge,
+            text =
+                "Başka bir kategori seçebilir veya yeni bir takip oluşturabilirsin.",
+            style =
+                MaterialTheme.typography.bodyLarge,
             color = MutedText
         )
     }
@@ -662,20 +692,51 @@ private fun FilterEmptyState() {
 private fun currentTurkishDate(): String {
     return SimpleDateFormat(
         "d MMMM yyyy, EEEE",
-        Locale("tr", "TR")
+        Locale.forLanguageTag("tr-TR")
     ).format(Date())
+}
+
+private fun TrackTone.color(): Color {
+    return when (this) {
+        TrackTone.PINK -> CardPink
+        TrackTone.SAGE -> CardSage
+        TrackTone.YELLOW -> CardYellow
+    }
+}
+
+private fun TrackIcon.vector(): ImageVector {
+    return when (this) {
+        TrackIcon.PERIOD ->
+            Icons.Outlined.WaterDrop
+
+        TrackIcon.PLANT ->
+            Icons.Outlined.LocalFlorist
+
+        TrackIcon.BED ->
+            Icons.Outlined.Bed
+
+        TrackIcon.COFFEE ->
+            Icons.Outlined.Coffee
+
+        TrackIcon.FILTER ->
+            Icons.Outlined.FilterAlt
+
+        TrackIcon.OTHER ->
+            Icons.Outlined.MoreHoriz
+    }
 }
 
 @Preview(
     name = "Boş durum",
     showBackground = true,
-    backgroundColor = 0xFFFFF9F3
+    backgroundColor = 0xFFFBF7F2
 )
 @Composable
 private fun EmptyHomePreview() {
     EnSonTheme {
         HomeScreen(
-            todayText = "14 Eylül 2026, Pazartesi"
+            todayText =
+                "15 Eylül 2026, Salı"
         )
     }
 }
@@ -683,72 +744,69 @@ private fun EmptyHomePreview() {
 @Preview(
     name = "Takipler",
     showBackground = true,
-    backgroundColor = 0xFFFFF9F3
+    backgroundColor = 0xFFFBF7F2
 )
 @Composable
 private fun PopulatedHomePreview() {
-
     EnSonTheme {
-
         HomeScreen(
-            todayText = "14 Eylül 2026, Pazartesi",
+            todayText =
+                "15 Eylül 2026, Salı",
             tracks = listOf(
-
                 TrackUiModel(
                     id = 1,
                     name = "Regl başlangıcı",
-                    category = TrackCategory.PERSONAL,
-                    type = TrackType.PERIOD_START,
+                    category =
+                        TrackCategory.PERSONAL,
+                    type =
+                        TrackType.PERIOD_START,
                     tone = TrackTone.PINK,
                     icon = TrackIcon.PERIOD,
-                    lastDateText = "8 Eylül 2026",
-                    elapsedDays = 6
+                    lastDateText =
+                        "8 Eylül 2026",
+                    elapsedDays = 7
                 ),
-
                 TrackUiModel(
                     id = 2,
                     name = "Çiçek sulama",
-                    category = TrackCategory.HOME,
+                    category =
+                        TrackCategory.HOME,
                     tone = TrackTone.SAGE,
                     icon = TrackIcon.PLANT,
-                    lastDateText = "13 Eylül 2026",
+                    lastDateText =
+                        "14 Eylül 2026",
                     elapsedDays = 1,
-                    scheduleText = "2 gün kaldı"
+                    scheduleText =
+                        "2 gün kaldı"
                 ),
-
                 TrackUiModel(
                     id = 3,
                     name = "Çarşaf değişimi",
-                    category = TrackCategory.HOME,
+                    category =
+                        TrackCategory.HOME,
                     tone = TrackTone.YELLOW,
                     icon = TrackIcon.BED,
-                    lastDateText = "14 Eylül 2026",
+                    lastDateText =
+                        "15 Eylül 2026",
                     elapsedDays = 0,
-                    scheduleText = "6 gün kaldı"
+                    scheduleText =
+                        "6 gün kaldı"
                 ),
-
                 TrackUiModel(
                     id = 4,
-                    name = "Kahve makinesi temizliği",
-                    category = TrackCategory.HOME,
+                    name =
+                        "Kahve makinesi temizliği",
+                    category =
+                        TrackCategory.HOME,
                     tone = TrackTone.PINK,
                     icon = TrackIcon.COFFEE,
-                    lastDateText = "6 Eylül 2026",
-                    elapsedDays = 8,
-                    scheduleText = "Bugün zamanı"
+                    lastDateText =
+                        "6 Eylül 2026",
+                    elapsedDays = 9,
+                    scheduleText =
+                        "Bugün zamanı"
                 )
             )
         )
-    }
-}
-
-private fun TrackUiModel.iconVector(): ImageVector {
-    return when (icon) {
-        TrackIcon.PERIOD -> Icons.Outlined.WaterDrop
-        TrackIcon.PLANT -> Icons.Outlined.LocalFlorist
-        TrackIcon.BED -> Icons.Outlined.Bed
-        TrackIcon.COFFEE -> Icons.Outlined.Coffee
-        TrackIcon.FILTER -> Icons.Outlined.FilterAlt
-        TrackIcon.OTHER -> Icons.Outlined.MoreHoriz
     }
 }
