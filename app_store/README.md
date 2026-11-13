@@ -91,7 +91,7 @@ running), then copy them from the device:
 ```
 
 ```bash
-adb pull /sdcard/Android/data/com.gencnis.enson/files/store/ store/graphics/
+adb pull /sdcard/Android/data/com.gencnis.enson/files/store/ app_store/graphics/
 ```
 
 ## 4. App content (Uygulama içeriği) answers
