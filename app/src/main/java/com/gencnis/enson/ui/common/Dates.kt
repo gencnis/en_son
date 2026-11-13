@@ -1,8 +1,8 @@
 package com.gencnis.enson.ui.common
 
 import com.gencnis.enson.model.TrackType
-import java.text.ParseException
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -45,32 +45,6 @@ fun currentEpochDay(): Long {
     return date.time / MILLIS_PER_DAY
 }
 
-fun parseDateToEpochDay(
-    text: String
-): Long? {
-    val formatter =
-        SimpleDateFormat(
-            "dd.MM.yyyy",
-            turkish
-        )
-
-    formatter.isLenient = false
-
-    formatter.timeZone =
-        TimeZone.getTimeZone("UTC")
-
-    return try {
-        val date =
-            formatter.parse(text.trim())
-                ?: return null
-
-        date.time / MILLIS_PER_DAY
-
-    } catch (_: ParseException) {
-        null
-    }
-}
-
 fun formatEpochDay(
     epochDay: Long
 ): String {
@@ -90,11 +64,53 @@ fun formatEpochDay(
     )
 }
 
-fun scheduleText(
+// Header text such as "13 Kasım 2026, Cuma".
+fun formatEpochDayWithWeekday(
+    epochDay: Long
+): String {
+    val formatter =
+        SimpleDateFormat(
+            "d MMMM yyyy, EEEE",
+            turkish
+        )
+
+    formatter.timeZone =
+        TimeZone.getTimeZone("UTC")
+
+    return formatter.format(
+        Date(
+            epochDay * MILLIS_PER_DAY
+        )
+    )
+}
+
+fun millisUntilNextLocalDay(): Long {
+    val nextMidnight =
+        Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+    return (
+            nextMidnight.timeInMillis -
+                    System.currentTimeMillis()
+            ).coerceAtLeast(1_000L)
+}
+
+data class ScheduleStatus(
+    val text: String,
+    // Due today or late.
+    val isDue: Boolean
+)
+
+fun scheduleStatus(
     type: TrackType,
     repeatIntervalDays: Int?,
     elapsedDays: Int?
-): String? {
+): ScheduleStatus? {
 
     if (type == TrackType.PERIOD_START) {
         return null
@@ -111,7 +127,7 @@ fun scheduleText(
         repeatIntervalDays -
                 elapsedDays
 
-    return when {
+    val text = when {
         remaining > 0 ->
             "$remaining gün kaldı"
 
@@ -121,4 +137,9 @@ fun scheduleText(
         else ->
             "${-remaining} gün gecikti"
     }
+
+    return ScheduleStatus(
+        text = text,
+        isDue = remaining <= 0
+    )
 }

@@ -2,7 +2,7 @@ package com.gencnis.enson.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Plum = Color(0xFF694C5C)
+val Plum = Color(0xFF69465C)
 val PlumDark = Color(0xFF493640)
 
 val WarmCream = Color(0xFFFBF7F2)

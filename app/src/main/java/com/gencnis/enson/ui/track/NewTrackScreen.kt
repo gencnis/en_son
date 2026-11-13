@@ -1,10 +1,12 @@
 package com.gencnis.enson.ui.track
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -30,28 +33,38 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.gencnis.enson.model.StarterSuggestion
 import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
 import com.gencnis.enson.model.TrackTone
 import com.gencnis.enson.model.TrackType
+import com.gencnis.enson.model.starterSuggestions
+import com.gencnis.enson.ui.common.DateField
+import com.gencnis.enson.ui.common.PastDatePickerDialog
 import com.gencnis.enson.ui.common.color
+import com.gencnis.enson.ui.common.currentEpochDay
 import com.gencnis.enson.ui.common.vector
 import com.gencnis.enson.ui.theme.CardPink
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.MutedText
+import com.gencnis.enson.ui.theme.OverdueTerracotta
 import com.gencnis.enson.ui.theme.Plum
 import com.gencnis.enson.ui.theme.SoftBorder
 import com.gencnis.enson.ui.theme.SurfacePaper
@@ -63,55 +76,18 @@ data class NewTrackDraft(
     val type: TrackType,
     val icon: TrackIcon,
     val tone: TrackTone,
-    val lastDateText: String?,
+    val lastDateEpochDay: Long?,
     val repeatIntervalDays: Int?
 )
 
-private data class StarterSuggestion(
-    val name: String,
-    val category: TrackCategory,
-    val type: TrackType = TrackType.NORMAL,
-    val icon: TrackIcon,
-    val tone: TrackTone
-)
-
-private val starterSuggestions = listOf(
-    StarterSuggestion(
-        name = "Regl başlangıcı",
-        category = TrackCategory.PERSONAL,
-        type = TrackType.PERIOD_START,
-        icon = TrackIcon.PERIOD,
-        tone = TrackTone.PINK
-    ),
-    StarterSuggestion(
-        name = "Çiçek sulama",
-        category = TrackCategory.HOME,
-        icon = TrackIcon.PLANT,
-        tone = TrackTone.SAGE
-    ),
-    StarterSuggestion(
-        name = "Çarşaf değişimi",
-        category = TrackCategory.HOME,
-        icon = TrackIcon.BED,
-        tone = TrackTone.YELLOW
-    ),
-    StarterSuggestion(
-        name = "Kahve makinesi temizliği",
-        category = TrackCategory.HOME,
-        icon = TrackIcon.COFFEE,
-        tone = TrackTone.PINK
-    ),
-    StarterSuggestion(
-        name = "Filtre değişimi",
-        category = TrackCategory.HOME,
-        icon = TrackIcon.FILTER,
-        tone = TrackTone.SAGE
-    )
-)
+private const val NAME_MAX_LENGTH = 60
 
 @Composable
 fun NewTrackScreen(
     initial: NewTrackDraft? = null,
+    suggestion: StarterSuggestion? = null,
+    todayEpochDay: Long = currentEpochDay(),
+    existingNames: Set<String> = emptySet(),
     onBack: () -> Unit = {},
     onSubmit: (NewTrackDraft) -> Unit = {}
 ) {
@@ -119,37 +95,53 @@ fun NewTrackScreen(
     // dates are then managed from the track's history instead.
     val isEditing = initial != null
 
+    // What the form starts from, to tell whether anything changed.
+    val startDraft = remember {
+        initial ?: NewTrackDraft(
+            name = suggestion?.name.orEmpty(),
+            category = suggestion?.category
+                ?: TrackCategory.PERSONAL,
+            type = suggestion?.type
+                ?: TrackType.NORMAL,
+            icon = suggestion?.icon
+                ?: TrackIcon.OTHER,
+            tone = suggestion?.tone
+                ?: TrackTone.PINK,
+            lastDateEpochDay = null,
+            repeatIntervalDays = null
+        )
+    }
+
     var name by rememberSaveable {
-        mutableStateOf(initial?.name.orEmpty())
+        mutableStateOf(startDraft.name)
     }
 
     var category by rememberSaveable {
-        mutableStateOf(
-            initial?.category
-                ?: TrackCategory.PERSONAL
-        )
+        mutableStateOf(startDraft.category)
     }
 
     var type by rememberSaveable {
-        mutableStateOf(
-            initial?.type ?: TrackType.NORMAL
-        )
+        mutableStateOf(startDraft.type)
     }
 
     var icon by rememberSaveable {
-        mutableStateOf(
-            initial?.icon ?: TrackIcon.OTHER
-        )
+        mutableStateOf(startDraft.icon)
     }
 
     var tone by rememberSaveable {
-        mutableStateOf(
-            initial?.tone ?: TrackTone.PINK
-        )
+        mutableStateOf(startDraft.tone)
     }
 
-    var lastDateText by rememberSaveable {
-        mutableStateOf("")
+    var lastDateEpochDay by rememberSaveable {
+        mutableStateOf<Long?>(null)
+    }
+
+    var showDatePicker by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var confirmDiscard by rememberSaveable {
+        mutableStateOf(false)
     }
 
     var repeatIntervalText by rememberSaveable {
@@ -167,6 +159,55 @@ fun NewTrackScreen(
     val canCreate =
         name.trim().isNotEmpty()
 
+    val isDuplicateName =
+        name.trim().lowercase() !=
+                initial?.name?.trim()?.lowercase() &&
+                existingNames.any {
+                    it.trim().equals(
+                        name.trim(),
+                        ignoreCase = true
+                    )
+                }
+
+    val currentDraft =
+        NewTrackDraft(
+            name = name.trim(),
+            category = category,
+            type = type,
+            icon = icon,
+            tone = tone,
+            lastDateEpochDay = lastDateEpochDay,
+            repeatIntervalDays =
+                if (isPeriodTrack) {
+                    null
+                } else {
+                    repeatIntervalText
+                        .toIntOrNull()
+                        ?.takeIf {
+                            it > 0
+                        }
+                }
+        )
+
+    val hasChanges =
+        currentDraft != startDraft.copy(
+            name = startDraft.name.trim()
+        )
+
+    val requestBack = {
+        if (hasChanges) {
+            confirmDiscard = true
+        } else {
+            onBack()
+        }
+    }
+
+    BackHandler(
+        enabled = hasChanges
+    ) {
+        confirmDiscard = true
+    }
+
     Scaffold(
         containerColor = WarmCream,
         bottomBar = {
@@ -179,31 +220,7 @@ fun NewTrackScreen(
                             return@Button
                         }
 
-                        onSubmit(
-                            NewTrackDraft(
-                                name = name.trim(),
-                                category = category,
-                                type = type,
-                                icon = icon,
-                                tone = tone,
-                                lastDateText =
-                                    lastDateText
-                                        .trim()
-                                        .takeIf {
-                                            it.isNotEmpty()
-                                        },
-                                repeatIntervalDays =
-                                    if (isPeriodTrack) {
-                                        null
-                                    } else {
-                                        repeatIntervalText
-                                            .toIntOrNull()
-                                            ?.takeIf {
-                                                it > 0
-                                            }
-                                    }
-                            )
-                        )
+                        onSubmit(currentDraft)
                     },
                     enabled = canCreate,
                     modifier = Modifier
@@ -256,7 +273,7 @@ fun NewTrackScreen(
                     Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = onBack
+                    onClick = requestBack
                 ) {
                     Icon(
                         imageVector =
@@ -328,7 +345,7 @@ fun NewTrackScreen(
             OutlinedTextField(
                 value = name,
                 onValueChange = {
-                    name = it
+                    name = it.take(NAME_MAX_LENGTH)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 placeholder = {
@@ -336,7 +353,24 @@ fun NewTrackScreen(
                         text = "Örn. Diş kontrolü"
                     )
                 },
+                supportingText = if (isDuplicateName) {
+                    {
+                        Text(
+                            text =
+                                "Bu isimde bir takip zaten var.",
+                            color = OverdueTerracotta
+                        )
+                    }
+                } else {
+                    null
+                },
                 singleLine = true,
+                keyboardOptions =
+                    KeyboardOptions(
+                        capitalization =
+                            KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
                 shape = RoundedCornerShape(18.dp),
                 colors = premiumTextFieldColors()
             )
@@ -530,20 +564,16 @@ fun NewTrackScreen(
                     modifier = Modifier.height(10.dp)
                 )
 
-                OutlinedTextField(
-                    value = lastDateText,
-                    onValueChange = {
-                        lastDateText = it
+                DateField(
+                    label = "Tarih",
+                    epochDay = lastDateEpochDay,
+                    placeholder = "Seçilmedi",
+                    onClick = {
+                        showDatePicker = true
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            text = "GG.AA.YYYY"
-                        )
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(18.dp),
-                    colors = premiumTextFieldColors()
+                    onClear = {
+                        lastDateEpochDay = null
+                    }
                 )
 
             }
@@ -579,9 +609,11 @@ fun NewTrackScreen(
                     value = repeatIntervalText,
                     onValueChange = { value ->
                         repeatIntervalText =
-                            value.filter {
-                                it.isDigit()
-                            }
+                            value
+                                .filter {
+                                    it.isDigit()
+                                }
+                                .take(3)
                     },
                     modifier =
                         Modifier.fillMaxWidth(),
@@ -625,17 +657,47 @@ fun NewTrackScreen(
                     color =
                         CardPink.copy(alpha = 0.60f)
                 ) {
-                    Text(
-                        text =
-                            "Regl başlangıcı yalnızca tarih geçmişini tutar. Tahmin veya gecikme yorumu yapılmaz.",
+                    Column(
                         modifier =
-                            Modifier.padding(16.dp),
-                        style =
-                            MaterialTheme
-                                .typography
-                                .bodyMedium,
-                        color = DarkText
-                    )
+                            Modifier.padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 16.dp,
+                                bottom = if (isEditing) {
+                                    16.dp
+                                } else {
+                                    4.dp
+                                }
+                            )
+                    ) {
+                        Text(
+                            text =
+                                "Regl başlangıcı yalnızca tarih geçmişini tutar. Tahmin veya gecikme yorumu yapılmaz.",
+                            style =
+                                MaterialTheme
+                                    .typography
+                                    .bodyMedium,
+                            color = DarkText
+                        )
+
+                        if (!isEditing) {
+                            TextButton(
+                                onClick = {
+                                    type = TrackType.NORMAL
+                                },
+                                contentPadding =
+                                    PaddingValues(0.dp)
+                            ) {
+                                Text(
+                                    text =
+                                        "Normal takip olarak oluştur",
+                                    color = Plum,
+                                    fontWeight =
+                                        FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -653,6 +715,72 @@ fun NewTrackScreen(
                 color = MutedText
             )
         }
+    }
+
+    if (showDatePicker) {
+        PastDatePickerDialog(
+            initialEpochDay =
+                lastDateEpochDay ?: todayEpochDay,
+            todayEpochDay = todayEpochDay,
+            onDismiss = {
+                showDatePicker = false
+            },
+            onConfirm = {
+                lastDateEpochDay = it
+                showDatePicker = false
+            }
+        )
+    }
+
+    if (confirmDiscard) {
+        AlertDialog(
+            onDismissRequest = {
+                confirmDiscard = false
+            },
+            containerColor = SurfacePaper,
+            title = {
+                Text(
+                    text = "Değişiklikler kaydedilmesin mi?",
+                    color = DarkText
+                )
+            },
+            text = {
+                Text(
+                    text = if (isEditing) {
+                        "Yaptığın değişiklikler kaybolacak."
+                    } else {
+                        "Bu takip oluşturulmayacak."
+                    },
+                    color = DarkText
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDiscard = false
+                        onBack()
+                    }
+                ) {
+                    Text(
+                        text = "Çık",
+                        color = Plum,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        confirmDiscard = false
+                    }
+                ) {
+                    Text(
+                        text = "Düzenlemeye devam et",
+                        color = Plum
+                    )
+                }
+            }
+        )
     }
 }
 

@@ -1,11 +1,14 @@
 package com.gencnis.enson.ui.home
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,8 +25,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,28 +49,36 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gencnis.enson.model.StarterSuggestion
 import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
 import com.gencnis.enson.model.TrackTone
 import com.gencnis.enson.model.TrackType
+import com.gencnis.enson.model.starterSuggestions
 import com.gencnis.enson.ui.common.color
+import com.gencnis.enson.ui.common.currentEpochDay
+import com.gencnis.enson.ui.common.formatEpochDayWithWeekday
 import com.gencnis.enson.ui.common.vector
 import com.gencnis.enson.ui.theme.CardPink
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.Fraunces
 import com.gencnis.enson.ui.theme.MutedText
+import com.gencnis.enson.ui.theme.OverdueTerracotta
 import com.gencnis.enson.ui.theme.Plum
 import com.gencnis.enson.ui.theme.SoftBorder
 import com.gencnis.enson.ui.theme.SurfacePaper
 import com.gencnis.enson.ui.theme.WarmCream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class TrackUiModel(
     val id: Long,
@@ -76,7 +89,9 @@ data class TrackUiModel(
     val icon: TrackIcon = TrackIcon.OTHER,
     val lastDateText: String? = null,
     val elapsedDays: Int? = null,
-    val scheduleText: String? = null
+    val scheduleText: String? = null,
+    // Due today or late; shown with emphasis.
+    val scheduleDue: Boolean = false
 )
 
 private enum class HomeFilter(
@@ -91,8 +106,10 @@ private enum class HomeFilter(
 @Composable
 fun HomeScreen(
     tracks: List<TrackUiModel> = emptyList(),
-    todayText: String = currentTurkishDate(),
+    todayText: String =
+        formatEpochDayWithWeekday(currentEpochDay()),
     onCreateTrack: () -> Unit = {},
+    onSuggestionClick: (StarterSuggestion) -> Unit = {},
     onTrackClick: (Long) -> Unit = {},
     onQuickLog: (Long) -> Unit = {}
 ) {
@@ -166,19 +183,25 @@ fun HomeScreen(
                 )
             }
 
-            item {
-                FilterRow(
-                    selected = selectedFilter,
-                    onSelected = {
-                        selectedFilter = it
-                    }
-                )
+            // Filters only make sense once there is something to filter.
+            if (tracks.isNotEmpty()) {
+                item {
+                    FilterRow(
+                        selected = selectedFilter,
+                        onSelected = {
+                            selectedFilter = it
+                        }
+                    )
+                }
             }
 
             when {
                 tracks.isEmpty() -> {
                     item {
-                        EmptyState()
+                        EmptyState(
+                            onSuggestionClick =
+                                onSuggestionClick
+                        )
                     }
                 }
 
@@ -374,13 +397,7 @@ private fun TrackCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = SurfacePaper
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = SoftBorder.copy(
-                alpha = 0.72f
-            )
+            containerColor = accentColor
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp
@@ -402,7 +419,7 @@ private fun TrackCard(
                 Surface(
                     modifier = Modifier.size(42.dp),
                     shape = CircleShape,
-                    color = accentColor
+                    color = SurfacePaper
                 ) {
                     Box(
                         contentAlignment =
@@ -442,7 +459,7 @@ private fun TrackCard(
                     Text(
                         text = track.lastDateText?.let {
                             "Son kayıt  ·  $it"
-                        } ?: "Henüz kayıt yok",
+                        } ?: track.category.label,
                         style =
                             MaterialTheme.typography.bodySmall,
                         color = MutedText
@@ -454,13 +471,20 @@ private fun TrackCard(
                 modifier = Modifier.height(18.dp)
             )
 
-            Row(
+            // Wraps the button below the day count when the text is
+            // large (small screens, big font settings) instead of
+            // squeezing either of them.
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Bottom
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
+                verticalArrangement =
+                    Arrangement.spacedBy(12.dp),
+                itemVerticalAlignment = Alignment.Bottom
             ) {
 
                 Column(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.padding(end = 12.dp)
                 ) {
                     ElapsedTime(
                         days = track.elapsedDays
@@ -476,8 +500,8 @@ private fun TrackCard(
                             shape =
                                 RoundedCornerShape(12.dp),
                             color =
-                                accentColor.copy(
-                                    alpha = 0.78f
+                                SurfacePaper.copy(
+                                    alpha = 0.72f
                                 )
                         ) {
                             Text(
@@ -491,48 +515,122 @@ private fun TrackCard(
                                     MaterialTheme
                                         .typography
                                         .labelMedium,
-                                color = DarkText,
+                                color = if (track.scheduleDue) {
+                                    OverdueTerracotta
+                                } else {
+                                    DarkText
+                                },
                                 fontWeight =
-                                    FontWeight.Medium
+                                    if (track.scheduleDue) {
+                                        FontWeight.SemiBold
+                                    } else {
+                                        FontWeight.Medium
+                                    }
                             )
                         }
                     }
                 }
 
-                Spacer(
-                    modifier = Modifier.width(12.dp)
+                QuickLogButton(
+                    loggedToday = track.elapsedDays == 0,
+                    isPeriod =
+                        track.type == TrackType.PERIOD_START,
+                    onClick = onQuickLog
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickLogButton(
+    loggedToday: Boolean,
+    isPeriod: Boolean,
+    onClick: () -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+
+    // Fills in once today's entry exists, so the card itself
+    // confirms the tap; tapping again offers to edit it.
+    val containerColor by animateColorAsState(
+        targetValue = if (loggedToday) {
+            Plum
+        } else {
+            SurfacePaper
+        },
+        label = "quickLogContainer"
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = if (loggedToday) {
+            Color.White
+        } else {
+            Plum
+        },
+        label = "quickLogContent"
+    )
+
+    Surface(
+        onClick = {
+            if (!loggedToday) {
+                haptics.performHapticFeedback(
+                    HapticFeedbackType.Confirm
+                )
+            }
+            onClick()
+        },
+        shape = RoundedCornerShape(14.dp),
+        color = containerColor,
+        border = if (loggedToday) {
+            null
+        } else {
+            BorderStroke(
+                width = 1.dp,
+                color = Plum.copy(alpha = 0.18f)
+            )
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .animateContentSize()
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 10.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            if (loggedToday) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(16.dp)
                 )
 
-                Surface(
-                    onClick = onQuickLog,
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color.Transparent,
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color =
-                            Plum.copy(alpha = 0.26f)
-                    )
-                ) {
-                    Text(
-                        text = if (
-                            track.type ==
-                            TrackType.PERIOD_START
-                        ) {
-                            "Başlangıç ekle"
-                        } else {
-                            "Bugün yaptım"
-                        },
-                        modifier = Modifier.padding(
-                            horizontal = 14.dp,
-                            vertical = 10.dp
-                        ),
-                        color = Plum,
-                        fontSize = 12.sp,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-                }
+                Spacer(
+                    modifier = Modifier.width(6.dp)
+                )
             }
+
+            Text(
+                text = when {
+                    loggedToday && isPeriod ->
+                        "Eklendi"
+
+                    loggedToday ->
+                        "Yapıldı"
+
+                    isPeriod ->
+                        "Başlangıç ekle"
+
+                    else ->
+                        "Bugün yaptım"
+                },
+                color = contentColor,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -547,7 +645,7 @@ private fun ElapsedTime(
                 text = "Henüz kayıt yok",
                 fontFamily = Fraunces,
                 color = DarkText,
-                fontSize = 25.sp,
+                fontSize = 23.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -573,38 +671,40 @@ private fun ElapsedTime(
         }
 
         else -> {
-            Row(
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = days.toString(),
-                    fontFamily = Fraunces,
-                    color = DarkText,
-                    fontSize = 46.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 46.sp
-                )
+            // One text so "gün geçti" wraps as words under the number.
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = Fraunces,
+                            color = DarkText,
+                            fontSize = 46.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    ) {
+                        append(days.toString())
+                    }
 
-                Spacer(
-                    modifier = Modifier.width(7.dp)
-                )
-
-                Text(
-                    text = "gün geçti",
-                    modifier = Modifier.padding(
-                        bottom = 6.dp
-                    ),
-                    color = MutedText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+                    withStyle(
+                        SpanStyle(
+                            color = MutedText,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        append("  gün geçti")
+                    }
+                },
+                lineHeight = 46.sp
+            )
         }
     }
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(
+    onSuggestionClick: (StarterSuggestion) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -652,6 +752,7 @@ private fun EmptyState() {
                 "En son ne zaman yaptığını unutmak istemediğin şeyleri burada tutabilirsin.",
             style =
                 MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
             color = MutedText
         )
 
@@ -672,42 +773,74 @@ private fun EmptyState() {
             modifier = Modifier.height(10.dp)
         )
 
-        val suggestions = listOf(
-            "Regl başlangıcı",
-            "Çiçek sulama",
-            "Çarşaf değişimi",
-            "Kahve makinesi temizliği",
-            "Filtre değişimi"
-        )
-
-        suggestions.forEach { suggestion ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 7.dp),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .background(
-                            color =
-                                Plum.copy(alpha = 0.42f),
-                            shape = CircleShape
+        Column(
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp)
+        ) {
+            starterSuggestions.forEach { suggestion ->
+                Surface(
+                    onClick = {
+                        onSuggestionClick(suggestion)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = SurfacePaper,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = SoftBorder.copy(
+                            alpha = 0.75f
                         )
-                )
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 14.dp,
+                            vertical = 12.dp
+                        ),
+                        verticalAlignment =
+                            Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(38.dp),
+                            shape = CircleShape,
+                            color = suggestion.tone.color()
+                        ) {
+                            Box(
+                                contentAlignment =
+                                    Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector =
+                                        suggestion.icon.vector(),
+                                    contentDescription = null,
+                                    tint = Plum,
+                                    modifier =
+                                        Modifier.size(19.dp)
+                                )
+                            }
+                        }
 
-                Spacer(
-                    modifier = Modifier.width(12.dp)
-                )
+                        Spacer(
+                            modifier = Modifier.width(12.dp)
+                        )
 
-                Text(
-                    text = suggestion,
-                    style =
-                        MaterialTheme.typography.bodyLarge,
-                    color = DarkText
-                )
+                        Text(
+                            text = suggestion.name,
+                            modifier = Modifier.weight(1f),
+                            style =
+                                MaterialTheme.typography.bodyLarge,
+                            color = DarkText,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = null,
+                            tint = Plum.copy(alpha = 0.6f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -756,15 +889,6 @@ private fun FilterEmptyState() {
         )
     }
 }
-
-private fun currentTurkishDate(): String {
-    return SimpleDateFormat(
-        "d MMMM yyyy, EEEE",
-        Locale.forLanguageTag("tr-TR")
-    ).format(Date())
-}
-
-
 
 @Preview(
     name = "Boş durum",

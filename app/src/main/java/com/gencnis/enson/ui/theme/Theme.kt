@@ -25,7 +25,9 @@ private val EnSonColorScheme = lightColorScheme(
 
     outline = SoftBorder,
 
-    // Snackbar action text on the dark snackbar.
+    // Snackbars: dark plum with a soft pink action.
+    inverseSurface = PlumDark,
+    inverseOnSurface = White,
     inversePrimary = CardPink
 )
 

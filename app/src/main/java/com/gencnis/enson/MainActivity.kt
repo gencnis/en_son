@@ -1,11 +1,21 @@
 package com.gencnis.enson
 
 import android.database.sqlite.SQLiteConstraintException
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +28,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,10 +40,12 @@ import androidx.compose.ui.unit.dp
 import com.gencnis.enson.data.local.EnSonDatabase
 import com.gencnis.enson.data.local.TrackEntity
 import com.gencnis.enson.data.local.TrackRecordEntity
+import com.gencnis.enson.model.starterSuggestions
 import com.gencnis.enson.ui.common.currentEpochDay
 import com.gencnis.enson.ui.common.formatEpochDay
-import com.gencnis.enson.ui.common.parseDateToEpochDay
-import com.gencnis.enson.ui.common.scheduleText
+import com.gencnis.enson.ui.common.formatEpochDayWithWeekday
+import com.gencnis.enson.ui.common.millisUntilNextLocalDay
+import com.gencnis.enson.ui.common.scheduleStatus
 import com.gencnis.enson.ui.home.HomeScreen
 import com.gencnis.enson.ui.home.TrackUiModel
 import com.gencnis.enson.ui.theme.EnSonTheme
@@ -40,14 +53,38 @@ import com.gencnis.enson.ui.theme.WarmCream
 import com.gencnis.enson.ui.track.NewTrackDraft
 import com.gencnis.enson.ui.track.NewTrackScreen
 import com.gencnis.enson.ui.track.TrackDetailScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
+    // Day counts follow the device's calendar date: refreshed when the
+    // app comes back to the foreground and at local midnight.
+    private var todayEpochDay by mutableLongStateOf(
+        currentEpochDay()
+    )
+
+    override fun onResume() {
+        super.onResume()
+
+        todayEpochDay = currentEpochDay()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        enableEdgeToEdge()
+        // The app is always light, so keep dark system bar icons
+        // even when the phone is in dark mode.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(
+                Color.TRANSPARENT,
+                Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.light(
+                Color.TRANSPARENT,
+                Color.TRANSPARENT
+            )
+        )
 
         setContent {
             EnSonTheme {
@@ -99,8 +136,17 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf(false)
                 }
 
-                val todayEpochDay =
-                    currentEpochDay()
+                // Set when the new track form is opened from a suggestion.
+                var newTrackSuggestionName by rememberSaveable {
+                    mutableStateOf<String?>(null)
+                }
+
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        delay(millisUntilNextLocalDay())
+                        todayEpochDay = currentEpochDay()
+                    }
+                }
 
                 val openTrack =
                     openTrackId?.let { id ->
@@ -152,34 +198,122 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val screen = when {
+                    tracks == null -> Screen.LOADING
+                    showNewTrackScreen -> Screen.NEW_TRACK
+                    openTrack != null &&
+                            editingOpenTrack -> Screen.EDIT_TRACK
+                    openTrack != null -> Screen.DETAIL
+                    else -> Screen.HOME
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(WarmCream)
                 ) {
 
-                    val loadedTracks = tracks
+                    AnimatedContent(
+                        targetState = screen,
+                        transitionSpec = {
+                            screenTransition(
+                                forward =
+                                    targetState.depth >=
+                                            initialState.depth
+                            )
+                        },
+                        label = "screen"
+                    ) { target ->
 
-                    when {
-                        loadedTracks == null -> Unit
+                        val loadedTracks = tracks.orEmpty()
 
-                        showNewTrackScreen -> {
+                        when (target) {
+                            Screen.LOADING -> Unit
 
-                            NewTrackScreen(
-                                onBack = {
-                                    showNewTrackScreen = false
-                                },
-                                onSubmit = { draft ->
+                            Screen.NEW_TRACK -> {
 
-                                    coroutineScope.launch {
+                                NewTrackScreen(
+                                    suggestion =
+                                        starterSuggestions.firstOrNull {
+                                            it.name ==
+                                                    newTrackSuggestionName
+                                        },
+                                    todayEpochDay = todayEpochDay,
+                                    existingNames = loadedTracks
+                                        .map { it.name }
+                                        .toSet(),
+                                    onBack = {
+                                        showNewTrackScreen = false
+                                    },
+                                    onSubmit = { draft ->
 
-                                        val trackId =
-                                            trackDao.insertTrack(
-                                                TrackEntity(
+                                        coroutineScope.launch {
+
+                                            val trackId =
+                                                trackDao.insertTrack(
+                                                    TrackEntity(
+                                                        name = draft.name,
+                                                        category =
+                                                            draft.category,
+                                                        type = draft.type,
+                                                        icon = draft.icon,
+                                                        tone = draft.tone,
+                                                        repeatIntervalDays =
+                                                            draft
+                                                                .repeatIntervalDays
+                                                    )
+                                                )
+
+                                            val initialDate =
+                                                draft.lastDateEpochDay
+
+                                            if (
+                                                initialDate != null &&
+                                                initialDate <=
+                                                currentEpochDay()
+                                            ) {
+                                                trackDao.insertRecord(
+                                                    TrackRecordEntity(
+                                                        trackId =
+                                                            trackId,
+                                                        dateEpochDay =
+                                                            initialDate
+                                                    )
+                                                )
+                                            }
+
+                                            showNewTrackScreen =
+                                                false
+                                        }
+                                    }
+                                )
+                            }
+
+                            Screen.EDIT_TRACK -> {
+
+                                // Gone mid-transition, e.g. just deleted.
+                                if (openTrack == null) {
+                                    return@AnimatedContent
+                                }
+
+                                NewTrackScreen(
+                                    initial = openTrack.toDraft(),
+                                    todayEpochDay = todayEpochDay,
+                                    existingNames = loadedTracks
+                                        .map { it.name }
+                                        .toSet(),
+                                    onBack = {
+                                        editingOpenTrack = false
+                                    },
+                                    onSubmit = { draft ->
+
+                                        coroutineScope.launch {
+
+                                            trackDao.updateTrack(
+                                                openTrack.copy(
                                                     name = draft.name,
                                                     category =
                                                         draft.category,
-                                                    type = draft.type,
                                                     icon = draft.icon,
                                                     tone = draft.tone,
                                                     repeatIntervalDays =
@@ -188,227 +322,82 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             )
 
-                                        val initialDate =
-                                            draft.lastDateText
-                                                ?.let {
-                                                    parseDateToEpochDay(
-                                                        it
-                                                    )
-                                                }
-
-                                        if (
-                                            initialDate != null &&
-                                            initialDate <=
-                                            currentEpochDay()
-                                        ) {
-                                            trackDao.insertRecord(
-                                                TrackRecordEntity(
-                                                    trackId =
-                                                        trackId,
-                                                    dateEpochDay =
-                                                        initialDate
-                                                )
-                                            )
+                                            editingOpenTrack =
+                                                false
                                         }
-
-                                        showNewTrackScreen =
-                                            false
                                     }
+                                )
+                            }
+
+                            Screen.DETAIL -> {
+
+                                if (openTrack == null) {
+                                    return@AnimatedContent
                                 }
-                            )
-                        }
 
-                        openTrack != null &&
-                                editingOpenTrack -> {
+                                TrackDetailScreen(
+                                    track = openTrack,
+                                    records = records.filter {
+                                        it.trackId == openTrack.id
+                                    },
+                                    todayEpochDay =
+                                        todayEpochDay,
+                                    onBack = {
+                                        openTrackId = null
+                                    },
+                                    onEditTrack = {
+                                        editingOpenTrack = true
+                                    },
+                                    onDeleteTrack = {
+                                        openTrackId = null
 
-                            NewTrackScreen(
-                                initial = openTrack.toDraft(),
-                                onBack = {
-                                    editingOpenTrack = false
-                                },
-                                onSubmit = { draft ->
-
-                                    coroutineScope.launch {
-
-                                        trackDao.updateTrack(
-                                            openTrack.copy(
-                                                name = draft.name,
-                                                category =
-                                                    draft.category,
-                                                icon = draft.icon,
-                                                tone = draft.tone,
-                                                repeatIntervalDays =
-                                                    draft
-                                                        .repeatIntervalDays
-                                            )
-                                        )
-
-                                        editingOpenTrack =
-                                            false
-                                    }
-                                }
-                            )
-                        }
-
-                        openTrack != null -> {
-
-                            TrackDetailScreen(
-                                track = openTrack,
-                                records = records.filter {
-                                    it.trackId == openTrack.id
-                                },
-                                todayEpochDay =
-                                    todayEpochDay,
-                                onBack = {
-                                    openTrackId = null
-                                },
-                                onEditTrack = {
-                                    editingOpenTrack = true
-                                },
-                                onDeleteTrack = {
-                                    openTrackId = null
-
-                                    coroutineScope.launch {
-                                        // Records go with it via
-                                        // ON DELETE CASCADE.
-                                        trackDao.deleteTrack(
-                                            openTrack
-                                        )
-                                    }
-                                },
-                                onAddRecord = { date, note ->
-
-                                    coroutineScope.launch {
-                                        writeRecord {
-                                            trackDao.insertRecord(
-                                                TrackRecordEntity(
-                                                    trackId =
-                                                        openTrack.id,
-                                                    dateEpochDay =
-                                                        date,
-                                                    note = note
-                                                )
+                                        coroutineScope.launch {
+                                            // Records go with it via
+                                            // ON DELETE CASCADE.
+                                            trackDao.deleteTrack(
+                                                openTrack
                                             )
                                         }
-                                    }
-                                },
-                                onUpdateRecord = { record ->
+                                    },
+                                    onAddRecord = { date, note ->
 
-                                    coroutineScope.launch {
-                                        writeRecord {
-                                            trackDao.updateRecord(
-                                                record
-                                            )
-                                        }
-                                    }
-                                },
-                                onDeleteRecord = { record ->
-
-                                    coroutineScope.launch {
-
-                                        trackDao.deleteRecord(
-                                            record
-                                        )
-
-                                        val result =
-                                            snackbarHostState
-                                                .showSnackbar(
-                                                    message =
-                                                        "Kayıt silindi",
-                                                    actionLabel =
-                                                        "Geri al",
-                                                    withDismissAction =
-                                                        true,
-                                                    duration =
-                                                        SnackbarDuration.Long
-                                                )
-
-                                        if (
-                                            result ==
-                                            SnackbarResult.ActionPerformed
-                                        ) {
+                                        coroutineScope.launch {
                                             writeRecord {
                                                 trackDao.insertRecord(
+                                                    TrackRecordEntity(
+                                                        trackId =
+                                                            openTrack.id,
+                                                        dateEpochDay =
+                                                            date,
+                                                        note = note
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onUpdateRecord = { record ->
+
+                                        coroutineScope.launch {
+                                            writeRecord {
+                                                trackDao.updateRecord(
                                                     record
                                                 )
                                             }
                                         }
-                                    }
-                                }
-                            )
-                        }
+                                    },
+                                    onDeleteRecord = { record ->
 
-                        else -> {
+                                        coroutineScope.launch {
 
-                            HomeScreen(
-                                tracks = loadedTracks.map { track ->
-                                    track.toUiModel(
-                                        records = records,
-                                        todayEpochDay =
-                                            todayEpochDay
-                                    )
-                                },
-                                onCreateTrack = {
-                                    showNewTrackScreen =
-                                        true
-                                },
-                                onTrackClick = { trackId ->
-                                    openTrackId = trackId
-                                },
-                                onQuickLog = { trackId ->
-
-                                    coroutineScope.launch {
-
-                                        val today =
-                                            currentEpochDay()
-
-                                        val alreadyExists =
-                                            trackDao
-                                                .recordExistsOnDate(
-                                                    trackId =
-                                                        trackId,
-                                                    dateEpochDay =
-                                                        today
-                                                )
-
-                                        if (alreadyExists) {
+                                            trackDao.deleteRecord(
+                                                record
+                                            )
 
                                             val result =
                                                 snackbarHostState
                                                     .showSnackbar(
                                                         message =
-                                                            "Bugün için zaten bir kayıt var",
-                                                        actionLabel =
-                                                            "Düzenle",
-                                                        duration =
-                                                            SnackbarDuration.Short
-                                                    )
-
-                                            if (
-                                                result ==
-                                                SnackbarResult.ActionPerformed
-                                            ) {
-                                                openTrackId =
-                                                    trackId
-                                            }
-
-                                        } else {
-
-                                            val recordId =
-                                                trackDao.insertRecord(
-                                                    TrackRecordEntity(
-                                                        trackId =
-                                                            trackId,
-                                                        dateEpochDay =
-                                                            today
-                                                    )
-                                                )
-
-                                            val result =
-                                                snackbarHostState
-                                                    .showSnackbar(
-                                                        message =
-                                                            "Kaydedildi",
+                                                            "Kayıt silindi",
                                                         actionLabel =
                                                             "Geri al",
                                                         withDismissAction =
@@ -421,15 +410,121 @@ class MainActivity : ComponentActivity() {
                                                 result ==
                                                 SnackbarResult.ActionPerformed
                                             ) {
-                                                trackDao
-                                                    .deleteRecordById(
-                                                        recordId
+                                                writeRecord {
+                                                    trackDao.insertRecord(
+                                                        record
                                                     )
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
+
+                            Screen.HOME -> {
+
+                                HomeScreen(
+                                    todayText =
+                                        formatEpochDayWithWeekday(
+                                            todayEpochDay
+                                        ),
+                                    tracks = loadedTracks.map { track ->
+                                        track.toUiModel(
+                                            records = records,
+                                            todayEpochDay =
+                                                todayEpochDay
+                                        )
+                                    },
+                                    onCreateTrack = {
+                                        newTrackSuggestionName = null
+                                        showNewTrackScreen =
+                                            true
+                                    },
+                                    onSuggestionClick = {
+                                        newTrackSuggestionName = it.name
+                                        showNewTrackScreen = true
+                                    },
+                                    onTrackClick = { trackId ->
+                                        openTrackId = trackId
+                                    },
+                                    onQuickLog = { trackId ->
+
+                                        coroutineScope.launch {
+
+                                            val today =
+                                                currentEpochDay()
+
+                                            todayEpochDay = today
+
+                                            val alreadyExists =
+                                                trackDao
+                                                    .recordExistsOnDate(
+                                                        trackId =
+                                                            trackId,
+                                                        dateEpochDay =
+                                                            today
+                                                    )
+
+                                            if (alreadyExists) {
+
+                                                val result =
+                                                    snackbarHostState
+                                                        .showSnackbar(
+                                                            message =
+                                                                "Bugün için zaten bir kayıt var",
+                                                            actionLabel =
+                                                                "Düzenle",
+                                                            duration =
+                                                                SnackbarDuration.Short
+                                                        )
+
+                                                if (
+                                                    result ==
+                                                    SnackbarResult.ActionPerformed
+                                                ) {
+                                                    openTrackId =
+                                                        trackId
+                                                }
+
+                                            } else {
+
+                                                val recordId =
+                                                    trackDao.insertRecord(
+                                                        TrackRecordEntity(
+                                                            trackId =
+                                                                trackId,
+                                                            dateEpochDay =
+                                                                today
+                                                        )
+                                                    )
+
+                                                val result =
+                                                    snackbarHostState
+                                                        .showSnackbar(
+                                                            message =
+                                                                "Kaydedildi",
+                                                            actionLabel =
+                                                                "Geri al",
+                                                            withDismissAction =
+                                                                true,
+                                                            duration =
+                                                                SnackbarDuration.Long
+                                                        )
+
+                                                if (
+                                                    result ==
+                                                    SnackbarResult.ActionPerformed
+                                                ) {
+                                                    trackDao
+                                                        .deleteRecordById(
+                                                            recordId
+                                                        )
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
 
@@ -458,6 +553,36 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Depth orders screens so moving deeper slides forward
+// and going back slides the other way.
+private enum class Screen(
+    val depth: Int
+) {
+    LOADING(0),
+    HOME(0),
+    DETAIL(1),
+    NEW_TRACK(1),
+    EDIT_TRACK(2)
+}
+
+private fun screenTransition(
+    forward: Boolean
+): ContentTransform {
+    val direction = if (forward) 1 else -1
+
+    return (
+            fadeIn(tween(220, delayMillis = 60)) +
+                    slideInHorizontally(tween(280)) {
+                        direction * it / 10
+                    }
+            ) togetherWith (
+            fadeOut(tween(120)) +
+                    slideOutHorizontally(tween(280)) {
+                        -direction * it / 10
+                    }
+            )
+}
+
 private fun TrackEntity.toDraft(): NewTrackDraft {
     return NewTrackDraft(
         name = name,
@@ -465,7 +590,7 @@ private fun TrackEntity.toDraft(): NewTrackDraft {
         type = type,
         icon = icon,
         tone = tone,
-        lastDateText = null,
+        lastDateEpochDay = null,
         repeatIntervalDays = repeatIntervalDays
     )
 }
@@ -498,6 +623,15 @@ private fun TrackEntity.toUiModel(
                 .toInt()
         }
 
+    val schedule =
+        scheduleStatus(
+            type = type,
+            repeatIntervalDays =
+                repeatIntervalDays,
+            elapsedDays =
+                elapsedDays
+        )
+
     return TrackUiModel(
         id = id,
         name = name,
@@ -512,13 +646,7 @@ private fun TrackEntity.toUiModel(
                 )
             },
         elapsedDays = elapsedDays,
-        scheduleText =
-            scheduleText(
-                type = type,
-                repeatIntervalDays =
-                    repeatIntervalDays,
-                elapsedDays =
-                    elapsedDays
-            )
+        scheduleText = schedule?.text,
+        scheduleDue = schedule?.isDue == true
     )
 }

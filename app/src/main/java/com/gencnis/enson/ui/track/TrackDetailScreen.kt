@@ -20,27 +20,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -60,10 +53,11 @@ import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
 import com.gencnis.enson.model.TrackTone
 import com.gencnis.enson.model.TrackType
-import com.gencnis.enson.ui.common.MILLIS_PER_DAY
+import com.gencnis.enson.ui.common.DateField
+import com.gencnis.enson.ui.common.PastDatePickerDialog
 import com.gencnis.enson.ui.common.color
 import com.gencnis.enson.ui.common.formatEpochDay
-import com.gencnis.enson.ui.common.scheduleText
+import com.gencnis.enson.ui.common.scheduleStatus
 import com.gencnis.enson.ui.common.vector
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
@@ -74,7 +68,6 @@ import com.gencnis.enson.ui.theme.Plum
 import com.gencnis.enson.ui.theme.SoftBorder
 import com.gencnis.enson.ui.theme.SurfacePaper
 import com.gencnis.enson.ui.theme.WarmCream
-import java.util.Locale
 
 private const val NOTE_MAX_LENGTH = 120
 
@@ -560,12 +553,12 @@ private fun SummaryCard(
                 )
             }
 
-            scheduleText(
+            scheduleStatus(
                 type = track.type,
                 repeatIntervalDays =
                     track.repeatIntervalDays,
                 elapsedDays = elapsedDays
-            )?.let {
+            )?.let { status ->
                 Spacer(
                     modifier = Modifier.height(14.dp)
                 )
@@ -577,7 +570,7 @@ private fun SummaryCard(
                     )
                 ) {
                     Text(
-                        text = it,
+                        text = status.text,
                         modifier = Modifier.padding(
                             horizontal = 12.dp,
                             vertical = 7.dp
@@ -586,7 +579,16 @@ private fun SummaryCard(
                             MaterialTheme
                                 .typography
                                 .labelLarge,
-                        color = DarkText
+                        color = if (status.isDue) {
+                            OverdueTerracotta
+                        } else {
+                            DarkText
+                        },
+                        fontWeight = if (status.isDue) {
+                            FontWeight.SemiBold
+                        } else {
+                            FontWeight.Medium
+                        }
                     )
                 }
             }
@@ -690,7 +692,6 @@ private fun RecordRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RecordDialog(
     title: String,
@@ -732,61 +733,15 @@ private fun RecordDialog(
         },
         text = {
             Column {
-                Surface(
+                DateField(
+                    label = "Tarih",
+                    epochDay = dateEpochDay,
+                    placeholder = "",
+                    containerColor = WarmCream,
                     onClick = {
                         showPicker = true
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = WarmCream,
-                    border = BorderStroke(
-                        width = 1.dp,
-                        color = SoftBorder
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(
-                            horizontal = 14.dp,
-                            vertical = 12.dp
-                        ),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = "Tarih",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .labelMedium,
-                                color = MutedText
-                            )
-
-                            Text(
-                                text = formatEpochDay(
-                                    dateEpochDay
-                                ),
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodyLarge,
-                                color = DarkText,
-                                fontWeight =
-                                    FontWeight.SemiBold
-                            )
-                        }
-
-                        Icon(
-                            imageVector =
-                                Icons.Outlined.CalendarMonth,
-                            contentDescription =
-                                "Tarih seç",
-                            tint = Plum
-                        )
                     }
-                }
+                )
 
                 if (existing != null) {
                     Spacer(
@@ -883,109 +838,17 @@ private fun RecordDialog(
     )
 
     if (showPicker) {
-        // Built directly (not remembered via rememberDatePickerState)
-        // so the calendar is Turkish whatever the device language.
-        val pickerState = remember(todayEpochDay) {
-            DatePickerState(
-                locale = Locale.forLanguageTag("tr-TR"),
-                initialSelectedDateMillis =
-                    dateEpochDay * MILLIS_PER_DAY,
-                selectableDates =
-                    // Events can't be recorded in the future.
-                    object : SelectableDates {
-                        override fun isSelectableDate(
-                            utcTimeMillis: Long
-                        ): Boolean {
-                            return utcTimeMillis /
-                                    MILLIS_PER_DAY <=
-                                    todayEpochDay
-                        }
-                    }
-            )
-        }
-
-        val pickerColors =
-            DatePickerDefaults.colors(
-                containerColor = SurfacePaper
-            )
-
-        DatePickerDialog(
-            onDismissRequest = {
+        PastDatePickerDialog(
+            initialEpochDay = dateEpochDay,
+            todayEpochDay = todayEpochDay,
+            onDismiss = {
                 showPicker = false
             },
-            colors = pickerColors,
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState
-                            .selectedDateMillis
-                            ?.let {
-                                dateEpochDay =
-                                    it / MILLIS_PER_DAY
-                            }
-                        showPicker = false
-                    }
-                ) {
-                    Text(
-                        text = "Tamam"
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showPicker = false
-                    }
-                ) {
-                    Text(
-                        text = "Vazgeç"
-                    )
-                }
+            onConfirm = {
+                dateEpochDay = it
+                showPicker = false
             }
-        ) {
-            DatePicker(
-                state = pickerState,
-                colors = pickerColors,
-                showModeToggle = false,
-                title = {
-                    Text(
-                        text = "Tarih seç",
-                        modifier = Modifier.padding(
-                            start = 24.dp,
-                            end = 12.dp,
-                            top = 16.dp
-                        ),
-                        style =
-                            MaterialTheme
-                                .typography
-                                .labelLarge,
-                        color = MutedText
-                    )
-                },
-                headline = {
-                    Text(
-                        text = pickerState
-                            .selectedDateMillis
-                            ?.let {
-                                formatEpochDay(
-                                    it / MILLIS_PER_DAY
-                                )
-                            }
-                            ?: "",
-                        modifier = Modifier.padding(
-                            start = 24.dp,
-                            end = 12.dp,
-                            bottom = 12.dp
-                        ),
-                        style =
-                            MaterialTheme
-                                .typography
-                                .headlineMedium,
-                        color = DarkText
-                    )
-                }
-            )
-        }
+        )
     }
 }
 

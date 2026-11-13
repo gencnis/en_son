@@ -183,4 +183,55 @@ class HomeScreenTest {
             .onNodeWithText("Bugün yaptım")
             .assertDoesNotExist()
     }
+
+    @Test
+    fun loggedToday_showsDoneButton() {
+        composeRule.setContent {
+            EnSonTheme {
+                HomeScreen(
+                    tracks = listOf(
+                        TrackUiModel(
+                            id = 1,
+                            name = "Çiçek sulama",
+                            category = TrackCategory.HOME,
+                            tone = TrackTone.SAGE,
+                            icon = TrackIcon.PLANT,
+                            lastDateText = "15 Eylül 2026",
+                            elapsedDays = 0
+                        )
+                    )
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("Yapıldı")
+            .assertIsDisplayed()
+
+        composeRule
+            .onNodeWithText("Bugün yaptım")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun emptyState_suggestionOpensWithThatSuggestion() {
+        var picked: String? = null
+
+        composeRule.setContent {
+            EnSonTheme {
+                HomeScreen(
+                    tracks = emptyList(),
+                    onSuggestionClick = {
+                        picked = it.name
+                    }
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithText("Çarşaf değişimi")
+            .performClick()
+
+        assertEquals("Çarşaf değişimi", picked)
+    }
 }
