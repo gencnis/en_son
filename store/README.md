@@ -77,7 +77,7 @@ For every later upload, raise `versionCode` (and usually `versionName`) in
 | --- | --- |
 | App icon 512×512 | `graphics/icon-512.png` |
 | Feature graphic 1024×500 | `graphics/feature-graphic-1024x500.png` |
-| Phone screenshots 1080×2160 | `screenshots/1-ana-ekran.png` … `5-ayarlar.png` |
+| Phone screenshots 1080×1920 (9:16) | `screenshots/1-ana-ekran.png` … `5-ayarlar.png` |
 
 Screenshots were taken on an emulator from a demo backup; no demo data
 ships in the app. The settings screenshot shows the About note, so retake it

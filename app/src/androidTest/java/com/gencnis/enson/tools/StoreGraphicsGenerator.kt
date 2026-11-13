@@ -148,7 +148,7 @@ class StoreGraphicsGenerator {
                 306f
             ),
             Triple(
-                "Ücretsiz · Reklamsız · Veriler telefonunda",
+                "Ücretsiz · Reklamsız",
                 noteTextPaint,
                 358f
             )
