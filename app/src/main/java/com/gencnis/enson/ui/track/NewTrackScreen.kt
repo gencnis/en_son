@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,12 +20,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Bed
-import androidx.compose.material.icons.outlined.Coffee
-import androidx.compose.material.icons.outlined.FilterAlt
-import androidx.compose.material.icons.outlined.LocalFlorist
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -45,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,9 +46,9 @@ import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
 import com.gencnis.enson.model.TrackTone
 import com.gencnis.enson.model.TrackType
+import com.gencnis.enson.ui.common.color
+import com.gencnis.enson.ui.common.vector
 import com.gencnis.enson.ui.theme.CardPink
-import com.gencnis.enson.ui.theme.CardSage
-import com.gencnis.enson.ui.theme.CardYellow
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.MutedText
@@ -119,27 +111,41 @@ private val starterSuggestions = listOf(
 
 @Composable
 fun NewTrackScreen(
+    initial: NewTrackDraft? = null,
     onBack: () -> Unit = {},
-    onCreate: (NewTrackDraft) -> Unit = {}
+    onSubmit: (NewTrackDraft) -> Unit = {}
 ) {
+    // With an initial draft the screen edits an existing track;
+    // dates are then managed from the track's history instead.
+    val isEditing = initial != null
+
     var name by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf(initial?.name.orEmpty())
     }
 
     var category by rememberSaveable {
-        mutableStateOf(TrackCategory.PERSONAL)
+        mutableStateOf(
+            initial?.category
+                ?: TrackCategory.PERSONAL
+        )
     }
 
     var type by rememberSaveable {
-        mutableStateOf(TrackType.NORMAL)
+        mutableStateOf(
+            initial?.type ?: TrackType.NORMAL
+        )
     }
 
     var icon by rememberSaveable {
-        mutableStateOf(TrackIcon.OTHER)
+        mutableStateOf(
+            initial?.icon ?: TrackIcon.OTHER
+        )
     }
 
     var tone by rememberSaveable {
-        mutableStateOf(TrackTone.PINK)
+        mutableStateOf(
+            initial?.tone ?: TrackTone.PINK
+        )
     }
 
     var lastDateText by rememberSaveable {
@@ -147,7 +153,12 @@ fun NewTrackScreen(
     }
 
     var repeatIntervalText by rememberSaveable {
-        mutableStateOf("")
+        mutableStateOf(
+            initial
+                ?.repeatIntervalDays
+                ?.toString()
+                .orEmpty()
+        )
     }
 
     val isPeriodTrack =
@@ -168,7 +179,7 @@ fun NewTrackScreen(
                             return@Button
                         }
 
-                        onCreate(
+                        onSubmit(
                             NewTrackDraft(
                                 name = name.trim(),
                                 category = category,
@@ -213,7 +224,11 @@ fun NewTrackScreen(
                     )
                 ) {
                     Text(
-                        text = "Takibi oluştur",
+                        text = if (isEditing) {
+                            "Kaydet"
+                        } else {
+                            "Takibi oluştur"
+                        },
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -225,7 +240,6 @@ fun NewTrackScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .statusBarsPadding()
                 .verticalScroll(
                     rememberScrollState()
                 )
@@ -255,7 +269,11 @@ fun NewTrackScreen(
                 }
 
                 Text(
-                    text = "Yeni takip",
+                    text = if (isEditing) {
+                        "Takibi düzenle"
+                    } else {
+                        "Yeni takip"
+                    },
                     style =
                         MaterialTheme
                             .typography
@@ -264,32 +282,36 @@ fun NewTrackScreen(
                 )
             }
 
-            Spacer(
-                modifier = Modifier.height(22.dp)
-            )
+            if (!isEditing) {
 
-            Text(
-                text = "Neyi takip etmek istiyorsun?",
-                style =
-                    MaterialTheme
-                        .typography
-                        .displaySmall,
-                color = DarkText
-            )
+                Spacer(
+                    modifier = Modifier.height(22.dp)
+                )
 
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
+                Text(
+                    text = "Neyi takip etmek istiyorsun?",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .displaySmall,
+                    color = DarkText
+                )
 
-            Text(
-                text =
-                    "Küçük şeyleri aklında tutmak zorunda değilsin.",
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodyLarge,
-                color = MutedText
-            )
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text =
+                        "Küçük şeyleri aklında tutmak zorunda değilsin.",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyLarge,
+                    color = MutedText
+                )
+
+            }
 
             Spacer(
                 modifier = Modifier.height(28.dp)
@@ -319,44 +341,48 @@ fun NewTrackScreen(
                 colors = premiumTextFieldColors()
             )
 
-            Spacer(
-                modifier = Modifier.height(26.dp)
-            )
+            if (!isEditing) {
 
-            SectionTitle(
-                text = "Hızlı başla"
-            )
+                Spacer(
+                    modifier = Modifier.height(26.dp)
+                )
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
+                SectionTitle(
+                    text = "Hızlı başla"
+                )
 
-            Column(
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
-            ) {
-                starterSuggestions.forEach {
-                        suggestion ->
+                Spacer(
+                    modifier = Modifier.height(10.dp)
+                )
 
-                    SuggestionRow(
-                        suggestion = suggestion,
-                        onClick = {
-                            name = suggestion.name
-                            category =
-                                suggestion.category
-                            type = suggestion.type
-                            icon = suggestion.icon
-                            tone = suggestion.tone
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    starterSuggestions.forEach {
+                            suggestion ->
 
-                            if (
-                                suggestion.type ==
-                                TrackType.PERIOD_START
-                            ) {
-                                repeatIntervalText = ""
+                        SuggestionRow(
+                            suggestion = suggestion,
+                            onClick = {
+                                name = suggestion.name
+                                category =
+                                    suggestion.category
+                                type = suggestion.type
+                                icon = suggestion.icon
+                                tone = suggestion.tone
+
+                                if (
+                                    suggestion.type ==
+                                    TrackType.PERIOD_START
+                                ) {
+                                    repeatIntervalText = ""
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
+
             }
 
             Spacer(
@@ -477,46 +503,50 @@ fun NewTrackScreen(
                 }
             }
 
-            Spacer(
-                modifier = Modifier.height(28.dp)
-            )
+            if (!isEditing) {
 
-            SectionTitle(
-                text = "Son yapılma tarihi"
-            )
+                Spacer(
+                    modifier = Modifier.height(28.dp)
+                )
 
-            Spacer(
-                modifier = Modifier.height(6.dp)
-            )
+                SectionTitle(
+                    text = "Son yapılma tarihi"
+                )
 
-            Text(
-                text = "İsteğe bağlı",
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall,
-                color = MutedText
-            )
+                Spacer(
+                    modifier = Modifier.height(6.dp)
+                )
 
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
+                Text(
+                    text = "İsteğe bağlı",
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodySmall,
+                    color = MutedText
+                )
 
-            OutlinedTextField(
-                value = lastDateText,
-                onValueChange = {
-                    lastDateText = it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        text = "GG.AA.YYYY"
-                    )
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(18.dp),
-                colors = premiumTextFieldColors()
-            )
+                Spacer(
+                    modifier = Modifier.height(10.dp)
+                )
+
+                OutlinedTextField(
+                    value = lastDateText,
+                    onValueChange = {
+                        lastDateText = it
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            text = "GG.AA.YYYY"
+                        )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(18.dp),
+                    colors = premiumTextFieldColors()
+                )
+
+            }
 
             if (!isPeriodTrack) {
 
@@ -615,7 +645,7 @@ fun NewTrackScreen(
 
             Text(
                 text =
-                    "Veriler bu cihazda saklanır.",
+                    "Veriler bu cihazda saklanır. Uygulamayı kaldırırsan kayıtların da silinir.",
                 style =
                     MaterialTheme
                         .typography
@@ -829,35 +859,7 @@ private fun premiumTextFieldColors() =
         cursorColor = Plum
     )
 
-private fun TrackTone.color(): Color {
-    return when (this) {
-        TrackTone.PINK -> CardPink
-        TrackTone.SAGE -> CardSage
-        TrackTone.YELLOW -> CardYellow
-    }
-}
 
-private fun TrackIcon.vector(): ImageVector {
-    return when (this) {
-        TrackIcon.PERIOD ->
-            Icons.Outlined.WaterDrop
-
-        TrackIcon.PLANT ->
-            Icons.Outlined.LocalFlorist
-
-        TrackIcon.BED ->
-            Icons.Outlined.Bed
-
-        TrackIcon.COFFEE ->
-            Icons.Outlined.Coffee
-
-        TrackIcon.FILTER ->
-            Icons.Outlined.FilterAlt
-
-        TrackIcon.OTHER ->
-            Icons.Outlined.MoreHoriz
-    }
-}
 
 @Preview(
     showBackground = true,

@@ -101,6 +101,16 @@ interface TrackDao {
     @Query(
         """
         DELETE FROM track_records
+        WHERE id = :recordId
+        """
+    )
+    suspend fun deleteRecordById(
+        recordId: Long
+    )
+
+    @Query(
+        """
+        DELETE FROM track_records
         WHERE trackId = :trackId
         """
     )

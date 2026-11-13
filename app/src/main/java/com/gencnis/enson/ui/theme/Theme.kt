@@ -23,7 +23,10 @@ private val EnSonColorScheme = lightColorScheme(
     surfaceVariant = CardPink,
     onSurfaceVariant = MutedText,
 
-    outline = SoftBorder
+    outline = SoftBorder,
+
+    // Snackbar action text on the dark snackbar.
+    inversePrimary = CardPink
 )
 
 @Composable

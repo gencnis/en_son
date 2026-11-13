@@ -22,22 +22,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Bed
-import androidx.compose.material.icons.outlined.Coffee
-import androidx.compose.material.icons.outlined.FilterAlt
-import androidx.compose.material.icons.outlined.LocalFlorist
-import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,9 +52,9 @@ import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
 import com.gencnis.enson.model.TrackTone
 import com.gencnis.enson.model.TrackType
+import com.gencnis.enson.ui.common.color
+import com.gencnis.enson.ui.common.vector
 import com.gencnis.enson.ui.theme.CardPink
-import com.gencnis.enson.ui.theme.CardSage
-import com.gencnis.enson.ui.theme.CardYellow
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.Fraunces
@@ -216,24 +213,93 @@ fun HomeScreen(
 private fun HomeHeader(
     todayText: String
 ) {
-    Column {
-        Text(
-            text = "En Son",
-            style = MaterialTheme.typography.displaySmall,
-            color = DarkText,
-            fontWeight = FontWeight.Bold
-        )
+    var showDataInfo by rememberSaveable {
+        mutableStateOf(false)
+    }
 
-        Spacer(
-            modifier = Modifier.height(4.dp)
-        )
+    Row(
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = "En Son",
+                style = MaterialTheme.typography.displaySmall,
+                color = DarkText,
+                fontWeight = FontWeight.Bold
+            )
 
-        Text(
-            text = todayText,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MutedText
+            Spacer(
+                modifier = Modifier.height(4.dp)
+            )
+
+            Text(
+                text = todayText,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MutedText
+            )
+        }
+
+        IconButton(
+            onClick = {
+                showDataInfo = true
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = "Verilerin hakkında",
+                tint = MutedText
+            )
+        }
+    }
+
+    if (showDataInfo) {
+        DataInfoDialog(
+            onDismiss = {
+                showDataInfo = false
+            }
         )
     }
+}
+
+@Composable
+private fun DataInfoDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = SurfacePaper,
+        title = {
+            Text(
+                text = "Veriler bu cihazda saklanır",
+                color = DarkText
+            )
+        },
+        text = {
+            Text(
+                text =
+                    "En Son hesap, internet bağlantısı, reklam veya analitik kullanmaz. " +
+                            "Takiplerin ve notların yalnızca bu cihazda tutulur; " +
+                            "kimseyle paylaşılmaz ve buluta yedeklenmez.\n\n" +
+                            "Uygulamayı kaldırırsan veya uygulama verilerini temizlersen " +
+                            "tüm kayıtların kalıcı olarak silinir.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = DarkText
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    text = "Tamam",
+                    color = Plum,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -650,7 +716,9 @@ private fun EmptyState() {
         )
 
         Text(
-            text = "Veriler bu cihazda saklanır.",
+            text =
+                "Veriler bu cihazda saklanır. Uygulamayı kaldırırsan kayıtların da silinir.",
+            modifier = Modifier.fillMaxWidth(),
             style =
                 MaterialTheme.typography.bodyMedium,
             color = MutedText
@@ -696,35 +764,7 @@ private fun currentTurkishDate(): String {
     ).format(Date())
 }
 
-private fun TrackTone.color(): Color {
-    return when (this) {
-        TrackTone.PINK -> CardPink
-        TrackTone.SAGE -> CardSage
-        TrackTone.YELLOW -> CardYellow
-    }
-}
 
-private fun TrackIcon.vector(): ImageVector {
-    return when (this) {
-        TrackIcon.PERIOD ->
-            Icons.Outlined.WaterDrop
-
-        TrackIcon.PLANT ->
-            Icons.Outlined.LocalFlorist
-
-        TrackIcon.BED ->
-            Icons.Outlined.Bed
-
-        TrackIcon.COFFEE ->
-            Icons.Outlined.Coffee
-
-        TrackIcon.FILTER ->
-            Icons.Outlined.FilterAlt
-
-        TrackIcon.OTHER ->
-            Icons.Outlined.MoreHoriz
-    }
-}
 
 @Preview(
     name = "Boş durum",
