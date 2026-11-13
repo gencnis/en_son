@@ -1,11 +1,39 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
 
+// Release signing comes from keystore.properties in the project root,
+// which is never committed (see keystore.properties.example).
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "com.gencnis.enson"
+
+    signingConfigs {
+        if (!keystoreProperties.isEmpty) {
+            create("release") {
+                storeFile = rootProject.file(
+                    keystoreProperties.getProperty("storeFile")
+                )
+                storePassword =
+                    keystoreProperties.getProperty("storePassword")
+                keyAlias =
+                    keystoreProperties.getProperty("keyAlias")
+                keyPassword =
+                    keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
 
     compileSdk {
         version = release(37)
@@ -24,8 +52,14 @@ android {
 
     buildTypes {
         release {
+            // R8 code and resource shrinking.
             optimization {
-                enable = false
+                enable = true
+            }
+
+            // Without keystore.properties the bundle is built unsigned.
+            signingConfigs.findByName("release")?.let {
+                signingConfig = it
             }
         }
     }
