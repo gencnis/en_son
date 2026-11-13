@@ -42,7 +42,7 @@ For every later upload, raise `versionCode` (and usually `versionName`) in
 | App name | En Son |
 | Default language | Türkçe – tr-TR |
 | Category | Verimlilik (Productivity) |
-| Contact email | *your public support email* |
+| Contact email | nisagenc.dev@gmail.com |
 | Privacy policy | https://gencnis.github.io/en_son/privacy.html |
 
 **Short description** (77/80):
@@ -117,5 +117,3 @@ adb pull /sdcard/Android/data/com.gencnis.enson/files/store/ store/graphics/
   test with at least 12 testers for 14 days before they can apply for
   production access. Create a closed testing track, upload the same bundle
   and invite testers by email list.
-* Fill in the contact email placeholders in `docs/privacy.html` and
-  `docs/terms.html`.
