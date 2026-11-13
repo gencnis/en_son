@@ -20,8 +20,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -78,6 +80,7 @@ fun TrackDetailScreen(
     todayEpochDay: Long,
     onBack: () -> Unit = {},
     onEditTrack: () -> Unit = {},
+    onToggleArchive: () -> Unit = {},
     onDeleteTrack: () -> Unit = {},
     onAddRecord: (dateEpochDay: Long, note: String?) -> Unit =
         { _, _ -> },
@@ -193,6 +196,25 @@ fun TrackDetailScreen(
                     )
 
                     IconButton(
+                        onClick = onToggleArchive
+                    ) {
+                        Icon(
+                            imageVector = if (track.isArchived) {
+                                Icons.Outlined.Unarchive
+                            } else {
+                                Icons.Outlined.Archive
+                            },
+                            contentDescription =
+                                if (track.isArchived) {
+                                    "Arşivden çıkar"
+                                } else {
+                                    "Arşivle"
+                                },
+                            tint = DarkText
+                        )
+                    }
+
+                    IconButton(
                         onClick = onEditTrack
                     ) {
                         Icon(
@@ -225,7 +247,14 @@ fun TrackDetailScreen(
                     track = track,
                     latestDateEpochDay =
                         latest?.dateEpochDay,
-                    elapsedDays = elapsedDays
+                    elapsedDays = elapsedDays,
+                    typicalGapDays =
+                        if (track.type == TrackType.PERIOD_START) {
+                            // No cycle interpretation for periods.
+                            null
+                        } else {
+                            typicalGapDays(history)
+                        }
                 )
             }
 
@@ -423,7 +452,8 @@ fun TrackDetailScreen(
 private fun SummaryCard(
     track: TrackEntity,
     latestDateEpochDay: Long?,
-    elapsedDays: Int?
+    elapsedDays: Int?,
+    typicalGapDays: Int?
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -550,6 +580,21 @@ private fun SummaryCard(
                             .typography
                             .bodyMedium,
                     color = DarkText
+                )
+            }
+
+            typicalGapDays?.let {
+                Text(
+                    text = if (it == 1) {
+                        "Genelde her gün"
+                    } else {
+                        "Genelde $it günde bir"
+                    },
+                    style =
+                        MaterialTheme
+                            .typography
+                            .bodyMedium,
+                    color = MutedText
                 )
             }
 
@@ -850,6 +895,24 @@ private fun RecordDialog(
             }
         )
     }
+}
+
+// Median gap between entries; needs at least three to mean anything.
+internal fun typicalGapDays(
+    records: List<TrackRecordEntity>
+): Int? {
+    val gaps = records
+        .map { it.dateEpochDay }
+        .sorted()
+        .zipWithNext { a, b -> (b - a).toInt() }
+        .filter { it > 0 }
+        .sorted()
+
+    if (gaps.size < 2) {
+        return null
+    }
+
+    return gaps[gaps.size / 2]
 }
 
 private fun daysAgoText(

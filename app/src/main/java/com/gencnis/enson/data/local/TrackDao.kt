@@ -37,6 +37,40 @@ interface TrackDao {
         track: TrackEntity
     ): Long
 
+    @Query(
+        """
+        UPDATE tracks
+        SET isArchived = :archived
+        WHERE id = :trackId
+        """
+    )
+    suspend fun setArchived(
+        trackId: Long,
+        archived: Boolean
+    )
+
+    // Backup and restore.
+
+    @Query("SELECT * FROM tracks")
+    suspend fun getAllTracks(): List<TrackEntity>
+
+    @Query("SELECT * FROM track_records")
+    suspend fun getAllRecords(): List<TrackRecordEntity>
+
+    // Records go with their tracks (ON DELETE CASCADE).
+    @Query("DELETE FROM tracks")
+    suspend fun deleteAllTracks()
+
+    @Insert
+    suspend fun insertTracks(
+        tracks: List<TrackEntity>
+    )
+
+    @Insert
+    suspend fun insertRecords(
+        records: List<TrackRecordEntity>
+    )
+
     @Update
     suspend fun updateTrack(
         track: TrackEntity

@@ -11,19 +11,44 @@ enum class TrackType {
     PERIOD_START
 }
 
-enum class TrackTone {
-    PINK,
-    SAGE,
-    YELLOW
+// Stored by name, so new values can be added but not renamed.
+enum class TrackTone(
+    val label: String
+) {
+    PINK("Pembe"),
+    SAGE("Adaçayı"),
+    YELLOW("Sarı"),
+    LAVENDER("Lavanta"),
+    SKY("Gök mavisi"),
+    PEACH("Şeftali")
 }
 
-enum class TrackIcon {
-    PERIOD,
-    PLANT,
-    BED,
-    COFFEE,
-    FILTER,
-    OTHER
+// Stored by name, so new values can be added but not renamed.
+enum class TrackIcon(
+    val label: String
+) {
+    PERIOD("Damla"),
+    PLANT("Çiçek"),
+    BED("Yatak"),
+    COFFEE("Kahve"),
+    FILTER("Filtre"),
+    MEDICINE("İlaç"),
+    HEALTH("Sağlık"),
+    PET("Evcil hayvan"),
+    HAIR("Saç"),
+    CAR("Araba"),
+    LAUNDRY("Çamaşır"),
+    CLEANING("Temizlik"),
+    SHOWER("Duş"),
+    KITCHEN("Mutfak"),
+    FITNESS("Spor"),
+    CALL("Telefon"),
+    BILLS("Fatura"),
+    BOOK("Kitap"),
+    HEART("Kalp"),
+    SPA("Bakım"),
+    RECYCLE("Geri dönüşüm"),
+    OTHER("Diğer")
 }
 
 // Optional ready-made tracks offered when creating one.

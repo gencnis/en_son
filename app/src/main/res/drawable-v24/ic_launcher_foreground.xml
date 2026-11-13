@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-   A clock face drawn as a counter-clockwise arrow: "when did I last…?".
-   Kept inside the 66dp adaptive-icon safe zone.
+   Three of the app's tinted cards, fanned like a small stack of tracks;
+   the front one carries the "when did I last…?" clock mark.
+   Everything stays inside the 66dp adaptive-icon safe zone.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -9,26 +10,54 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Dial, open on the left where the arrow points back. -->
-    <path
-        android:pathData="M35.21,47.16 A20,20 0 1,1 35.21,60.84"
-        android:strokeWidth="5"
-        android:strokeColor="#FBF7F2"
-        android:strokeLineCap="round" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="-14"
+        android:translateX="-3">
+        <path
+            android:fillColor="#F4EBCF"
+            android:pathData="M43,32 H65 A7,7 0 0 1 72,39 V69 A7,7 0 0 1 65,76 H43 A7,7 0 0 1 36,69 V39 A7,7 0 0 1 43,32 Z" />
+    </group>
 
-    <!-- Arrow head. -->
-    <path
-        android:pathData="M31.53,42.63 L34.18,49.98 L40.93,46.05"
-        android:strokeWidth="5"
-        android:strokeColor="#FBF7F2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:rotation="11"
+        android:translateX="3">
+        <path
+            android:fillColor="#E8EEE4"
+            android:pathData="M43,32 H65 A7,7 0 0 1 72,39 V69 A7,7 0 0 1 65,76 H43 A7,7 0 0 1 36,69 V39 A7,7 0 0 1 43,32 Z" />
+    </group>
 
-    <!-- Hands. -->
     <path
-        android:pathData="M54,42 L54,54 L62,59"
-        android:strokeWidth="4.5"
-        android:strokeColor="#FBF7F2"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:fillColor="#FBF7F2"
+        android:pathData="M43,32 H65 A7,7 0 0 1 72,39 V69 A7,7 0 0 1 65,76 H43 A7,7 0 0 1 36,69 V39 A7,7 0 0 1 43,32 Z" />
+
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.56"
+        android:scaleY="0.56">
+
+        <path
+            android:pathData="M35.21,47.16 A20,20 0 1,1 35.21,60.84"
+            android:strokeWidth="6.5"
+            android:strokeColor="#69465C"
+            android:strokeLineCap="round" />
+
+        <path
+            android:pathData="M31.53,42.63 L34.18,49.98 L40.93,46.05"
+            android:strokeWidth="6.5"
+            android:strokeColor="#69465C"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+
+        <path
+            android:pathData="M54,42 L54,54 L62,59"
+            android:strokeWidth="6"
+            android:strokeColor="#69465C"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
 </vector>

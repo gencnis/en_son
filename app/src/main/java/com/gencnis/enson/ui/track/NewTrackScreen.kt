@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -43,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -64,6 +67,7 @@ import com.gencnis.enson.ui.theme.CardPink
 import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.MutedText
+import com.gencnis.enson.ui.theme.OnPlum
 import com.gencnis.enson.ui.theme.OverdueTerracotta
 import com.gencnis.enson.ui.theme.Plum
 import com.gencnis.enson.ui.theme.SoftBorder
@@ -466,6 +470,16 @@ fun NewTrackScreen(
                 modifier = Modifier.height(12.dp)
             )
 
+            AppearancePreview(
+                name = name.trim(),
+                icon = icon,
+                tone = tone
+            )
+
+            Spacer(
+                modifier = Modifier.height(18.dp)
+            )
+
             Text(
                 text = "İkon",
                 style =
@@ -479,13 +493,11 @@ fun NewTrackScreen(
                 modifier = Modifier.height(9.dp)
             )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(
-                        rememberScrollState()
-                    ),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement =
+                    Arrangement.spacedBy(10.dp),
+                verticalArrangement =
                     Arrangement.spacedBy(10.dp)
             ) {
                 TrackIcon.entries.forEach {
@@ -493,6 +505,7 @@ fun NewTrackScreen(
 
                     IconChoice(
                         icon = item,
+                        accent = tone.color(),
                         selected =
                             icon == item,
                         onClick = {
@@ -519,8 +532,10 @@ fun NewTrackScreen(
                 modifier = Modifier.height(9.dp)
             )
 
-            Row(
+            FlowRow(
                 horizontalArrangement =
+                    Arrangement.spacedBy(12.dp),
+                verticalArrangement =
                     Arrangement.spacedBy(12.dp)
             ) {
                 TrackTone.entries.forEach {
@@ -898,7 +913,7 @@ private fun SelectionPill(
                     .typography
                     .labelMedium,
             color = if (selected) {
-                Color.White
+                OnPlum
             } else {
                 MutedText
             },
@@ -907,9 +922,68 @@ private fun SelectionPill(
     }
 }
 
+// A small version of the home card, so choices are seen in place.
+@Composable
+private fun AppearancePreview(
+    name: String,
+    icon: TrackIcon,
+    tone: TrackTone
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = tone.color()
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 16.dp,
+                vertical = 14.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape,
+                color = SurfacePaper
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon.vector(),
+                        contentDescription = null,
+                        tint = Plum,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(
+                modifier = Modifier.size(13.dp)
+            )
+
+            Text(
+                text = name.ifEmpty { "Takip adı" },
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleMedium,
+                color = if (name.isEmpty()) {
+                    MutedText
+                } else {
+                    DarkText
+                },
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
 @Composable
 private fun IconChoice(
     icon: TrackIcon,
+    accent: Color,
     selected: Boolean,
     onClick: () -> Unit
 ) {
@@ -918,7 +992,7 @@ private fun IconChoice(
         modifier = Modifier.size(48.dp),
         shape = CircleShape,
         color = if (selected) {
-            CardPink
+            accent
         } else {
             SurfacePaper
         },
@@ -938,7 +1012,7 @@ private fun IconChoice(
         ) {
             Icon(
                 imageVector = icon.vector(),
-                contentDescription = null,
+                contentDescription = icon.label,
                 modifier = Modifier.size(21.dp),
                 tint = Plum
             )
@@ -954,7 +1028,11 @@ private fun ToneChoice(
 ) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(42.dp),
+        modifier = Modifier
+            .size(42.dp)
+            .semantics {
+                contentDescription = tone.label
+            },
         shape = CircleShape,
         color = tone.color(),
         border = if (selected) {

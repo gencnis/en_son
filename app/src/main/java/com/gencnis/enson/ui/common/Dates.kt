@@ -64,6 +64,26 @@ fun formatEpochDay(
     )
 }
 
+// "2026-11-13", e.g. for file names.
+fun formatEpochDayIso(
+    epochDay: Long
+): String {
+    val formatter =
+        SimpleDateFormat(
+            "yyyy-MM-dd",
+            Locale.US
+        )
+
+    formatter.timeZone =
+        TimeZone.getTimeZone("UTC")
+
+    return formatter.format(
+        Date(
+            epochDay * MILLIS_PER_DAY
+        )
+    )
+}
+
 // Header text such as "13 Kasım 2026, Cuma".
 fun formatEpochDayWithWeekday(
     epochDay: Long

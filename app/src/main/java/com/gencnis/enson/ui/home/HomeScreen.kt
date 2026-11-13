@@ -26,10 +26,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -44,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,6 +63,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gencnis.enson.data.HomeSort
 import com.gencnis.enson.model.StarterSuggestion
 import com.gencnis.enson.model.TrackCategory
 import com.gencnis.enson.model.TrackIcon
@@ -74,6 +79,7 @@ import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
 import com.gencnis.enson.ui.theme.Fraunces
 import com.gencnis.enson.ui.theme.MutedText
+import com.gencnis.enson.ui.theme.OnPlum
 import com.gencnis.enson.ui.theme.OverdueTerracotta
 import com.gencnis.enson.ui.theme.Plum
 import com.gencnis.enson.ui.theme.SoftBorder
@@ -111,7 +117,12 @@ fun HomeScreen(
     onCreateTrack: () -> Unit = {},
     onSuggestionClick: (StarterSuggestion) -> Unit = {},
     onTrackClick: (Long) -> Unit = {},
-    onQuickLog: (Long) -> Unit = {}
+    onQuickLog: (Long) -> Unit = {},
+    sort: HomeSort = HomeSort.NEWEST,
+    onSortChange: (HomeSort) -> Unit = {},
+    archivedCount: Int = 0,
+    onOpenArchive: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     var selectedFilter by rememberSaveable {
         mutableStateOf(HomeFilter.ALL)
@@ -179,7 +190,8 @@ fun HomeScreen(
 
             item {
                 HomeHeader(
-                    todayText = todayText
+                    todayText = todayText,
+                    onOpenSettings = onOpenSettings
                 )
             }
 
@@ -212,6 +224,16 @@ fun HomeScreen(
                 }
 
                 else -> {
+                    if (tracks.size > 1) {
+                        item {
+                            SortRow(
+                                count = visibleTracks.size,
+                                sort = sort,
+                                onSortChange = onSortChange
+                            )
+                        }
+                    }
+
                     items(
                         items = visibleTracks,
                         key = { it.id }
@@ -228,18 +250,135 @@ fun HomeScreen(
                     }
                 }
             }
+
+            if (archivedCount > 0) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TextButton(
+                            onClick = onOpenArchive
+                        ) {
+                            Icon(
+                                imageVector =
+                                    Icons.Outlined.Inventory2,
+                                contentDescription = null,
+                                tint = MutedText,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Spacer(
+                                modifier = Modifier.width(8.dp)
+                            )
+
+                            Text(
+                                text = "Arşiv  ·  $archivedCount",
+                                color = MutedText,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SortRow(
+    count: Int,
+    sort: HomeSort,
+    onSortChange: (HomeSort) -> Unit
+) {
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$count takip",
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MutedText
+        )
+
+        Box {
+            TextButton(
+                onClick = {
+                    expanded = true
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Sort,
+                    contentDescription = null,
+                    tint = Plum,
+                    modifier = Modifier.size(18.dp)
+                )
+
+                Spacer(
+                    modifier = Modifier.width(6.dp)
+                )
+
+                Text(
+                    text = sort.label,
+                    color = Plum,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                },
+                containerColor = SurfacePaper
+            ) {
+                HomeSort.entries.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option.label,
+                                color = DarkText,
+                                fontWeight = if (option == sort) {
+                                    FontWeight.SemiBold
+                                } else {
+                                    FontWeight.Normal
+                                }
+                            )
+                        },
+                        trailingIcon = if (option == sort) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = Plum
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        onClick = {
+                            expanded = false
+                            onSortChange(option)
+                        }
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun HomeHeader(
-    todayText: String
+    todayText: String,
+    onOpenSettings: () -> Unit
 ) {
-    var showDataInfo by rememberSaveable {
-        mutableStateOf(false)
-    }
-
     Row(
         verticalAlignment = Alignment.Top
     ) {
@@ -265,64 +404,15 @@ private fun HomeHeader(
         }
 
         IconButton(
-            onClick = {
-                showDataInfo = true
-            }
+            onClick = onOpenSettings
         ) {
             Icon(
-                imageVector = Icons.Outlined.Info,
-                contentDescription = "Verilerin hakkında",
+                imageVector = Icons.Outlined.Settings,
+                contentDescription = "Ayarlar",
                 tint = MutedText
             )
         }
     }
-
-    if (showDataInfo) {
-        DataInfoDialog(
-            onDismiss = {
-                showDataInfo = false
-            }
-        )
-    }
-}
-
-@Composable
-private fun DataInfoDialog(
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = SurfacePaper,
-        title = {
-            Text(
-                text = "Veriler bu cihazda saklanır",
-                color = DarkText
-            )
-        },
-        text = {
-            Text(
-                text =
-                    "En Son hesap, internet bağlantısı, reklam veya analitik kullanmaz. " +
-                            "Takiplerin ve notların yalnızca bu cihazda tutulur; " +
-                            "kimseyle paylaşılmaz ve buluta yedeklenmez.\n\n" +
-                            "Uygulamayı kaldırırsan veya uygulama verilerini temizlersen " +
-                            "tüm kayıtların kalıcı olarak silinir.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = DarkText
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss
-            ) {
-                Text(
-                    text = "Tamam",
-                    color = Plum,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    )
 }
 
 @Composable
@@ -369,7 +459,7 @@ private fun FilterRow(
                     ),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (isSelected) {
-                        Color.White
+                        OnPlum
                     } else {
                         MutedText
                     },
@@ -563,7 +653,7 @@ private fun QuickLogButton(
 
     val contentColor by animateColorAsState(
         targetValue = if (loggedToday) {
-            Color.White
+            OnPlum
         } else {
             Plum
         },

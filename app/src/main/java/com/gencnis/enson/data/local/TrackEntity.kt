@@ -1,5 +1,6 @@
 package com.gencnis.enson.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.gencnis.enson.model.TrackCategory
@@ -27,5 +28,9 @@ data class TrackEntity(
     val repeatIntervalDays: Int? = null,
 
     val createdAtEpochMillis: Long =
-        System.currentTimeMillis()
+        System.currentTimeMillis(),
+
+    // Hidden from the home list but kept with its history.
+    @ColumnInfo(defaultValue = "0")
+    val isArchived: Boolean = false
 )

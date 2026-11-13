@@ -1,43 +1,73 @@
 package com.gencnis.enson.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 
-private val EnSonColorScheme = lightColorScheme(
-    primary = Plum,
-    onPrimary = White,
+private fun EnSonColors.toColorScheme(): ColorScheme {
+    val base = if (isDark) {
+        darkColorScheme()
+    } else {
+        lightColorScheme()
+    }
 
-    primaryContainer = CardPink,
-    onPrimaryContainer = DarkText,
+    return base.copy(
+        primary = plum,
+        onPrimary = onPlum,
 
-    secondary = PlumDark,
-    onSecondary = White,
+        primaryContainer = pink,
+        onPrimaryContainer = text,
 
-    background = WarmCream,
-    onBackground = DarkText,
+        secondary = plumDeep,
+        onSecondary = background,
 
-    surface = WarmCream,
-    onSurface = DarkText,
+        background = background,
+        onBackground = text,
 
-    surfaceVariant = CardPink,
-    onSurfaceVariant = MutedText,
+        surface = background,
+        onSurface = text,
 
-    outline = SoftBorder,
+        surfaceVariant = pink,
+        onSurfaceVariant = mutedText,
 
-    // Snackbars: dark plum with a soft pink action.
-    inverseSurface = PlumDark,
-    inverseOnSurface = White,
-    inversePrimary = CardPink
-)
+        surfaceContainerHigh = surface,
+        surfaceContainerHighest = surface,
+
+        outline = border,
+
+        // Snackbars: deep plum with a soft pink action.
+        inverseSurface = plumDeep,
+        inverseOnSurface = background,
+        inversePrimary = if (isDark) {
+            LightEnSonColors.plum
+        } else {
+            pink
+        }
+    )
+}
 
 @Composable
 fun EnSonTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = EnSonColorScheme,
-        typography = Typography,
-        content = content
-    )
+    val colors = if (darkTheme) {
+        DarkEnSonColors
+    } else {
+        LightEnSonColors
+    }
+
+    CompositionLocalProvider(
+        LocalEnSonColors provides colors
+    ) {
+        MaterialTheme(
+            colorScheme = colors.toColorScheme(),
+            typography = Typography,
+            content = content
+        )
+    }
 }

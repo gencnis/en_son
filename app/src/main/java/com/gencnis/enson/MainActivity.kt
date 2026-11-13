@@ -17,14 +17,19 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,25 +41,43 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.gencnis.enson.data.AppPreferences
+import com.gencnis.enson.data.HomeSort
+import com.gencnis.enson.data.ThemeMode
+import com.gencnis.enson.data.backup.BackupData
+import com.gencnis.enson.data.backup.parseBackup
+import com.gencnis.enson.data.backup.readBackup
+import com.gencnis.enson.data.backup.restoreBackup
+import com.gencnis.enson.data.backup.toJson
 import com.gencnis.enson.data.local.EnSonDatabase
 import com.gencnis.enson.data.local.TrackEntity
 import com.gencnis.enson.data.local.TrackRecordEntity
+import com.gencnis.enson.model.TrackType
 import com.gencnis.enson.model.starterSuggestions
 import com.gencnis.enson.ui.common.currentEpochDay
 import com.gencnis.enson.ui.common.formatEpochDay
 import com.gencnis.enson.ui.common.formatEpochDayWithWeekday
 import com.gencnis.enson.ui.common.millisUntilNextLocalDay
 import com.gencnis.enson.ui.common.scheduleStatus
+import com.gencnis.enson.ui.home.ArchiveScreen
 import com.gencnis.enson.ui.home.HomeScreen
 import com.gencnis.enson.ui.home.TrackUiModel
+import com.gencnis.enson.ui.settings.SettingsScreen
+import com.gencnis.enson.ui.theme.DarkText
 import com.gencnis.enson.ui.theme.EnSonTheme
+import com.gencnis.enson.ui.theme.OverdueTerracotta
+import com.gencnis.enson.ui.theme.Plum
+import com.gencnis.enson.ui.theme.SurfacePaper
 import com.gencnis.enson.ui.theme.WarmCream
 import com.gencnis.enson.ui.track.NewTrackDraft
 import com.gencnis.enson.ui.track.NewTrackScreen
 import com.gencnis.enson.ui.track.TrackDetailScreen
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -63,6 +86,14 @@ class MainActivity : ComponentActivity() {
     private var todayEpochDay by mutableLongStateOf(
         currentEpochDay()
     )
+
+    private val preferences by lazy {
+        AppPreferences(applicationContext)
+    }
+
+    private var themeMode by mutableStateOf(ThemeMode.SYSTEM)
+
+    private var homeSort by mutableStateOf(HomeSort.NEWEST)
 
     override fun onResume() {
         super.onResume()
@@ -73,21 +104,38 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // The app is always light, so keep dark system bar icons
-        // even when the phone is in dark mode.
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.light(
-                Color.TRANSPARENT,
-                Color.TRANSPARENT
-            ),
-            navigationBarStyle = SystemBarStyle.light(
-                Color.TRANSPARENT,
-                Color.TRANSPARENT
-            )
-        )
+        themeMode = preferences.themeMode
+        homeSort = preferences.homeSort
+
+        enableEdgeToEdge()
 
         setContent {
-            EnSonTheme {
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            // System bar icons follow the app's theme, not the phone's.
+            DisposableEffect(darkTheme) {
+                val barStyle = if (darkTheme) {
+                    SystemBarStyle.dark(Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.light(
+                        Color.TRANSPARENT,
+                        Color.TRANSPARENT
+                    )
+                }
+
+                enableEdgeToEdge(
+                    statusBarStyle = barStyle,
+                    navigationBarStyle = barStyle
+                )
+
+                onDispose {}
+            }
+
+            EnSonTheme(darkTheme = darkTheme) {
 
                 val database = remember {
                     EnSonDatabase.getInstance(
@@ -141,6 +189,19 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf<String?>(null)
                 }
 
+                var showSettings by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                var showArchive by rememberSaveable {
+                    mutableStateOf(false)
+                }
+
+                // A backup that was read and waits for confirmation.
+                var pendingRestore by remember {
+                    mutableStateOf<BackupData?>(null)
+                }
+
                 LaunchedEffect(Unit) {
                     while (true) {
                         delay(millisUntilNextLocalDay())
@@ -169,7 +230,9 @@ class MainActivity : ComponentActivity() {
                 BackHandler(
                     enabled =
                         showNewTrackScreen ||
-                                openTrackId != null
+                                openTrackId != null ||
+                                showSettings ||
+                                showArchive
                 ) {
                     when {
                         showNewTrackScreen ->
@@ -178,8 +241,14 @@ class MainActivity : ComponentActivity() {
                         editingOpenTrack ->
                             editingOpenTrack = false
 
-                        else ->
+                        openTrackId != null ->
                             openTrackId = null
+
+                        showSettings ->
+                            showSettings = false
+
+                        else ->
+                            showArchive = false
                     }
                 }
 
@@ -204,6 +273,8 @@ class MainActivity : ComponentActivity() {
                     openTrack != null &&
                             editingOpenTrack -> Screen.EDIT_TRACK
                     openTrack != null -> Screen.DETAIL
+                    showSettings -> Screen.SETTINGS
+                    showArchive -> Screen.ARCHIVE
                     else -> Screen.HOME
                 }
 
@@ -348,6 +419,46 @@ class MainActivity : ComponentActivity() {
                                     onEditTrack = {
                                         editingOpenTrack = true
                                     },
+                                    onToggleArchive = {
+                                        val track = openTrack
+                                        val archive = !track.isArchived
+
+                                        // Archiving hides the track, so
+                                        // leave its page; unarchiving stays.
+                                        if (archive) {
+                                            openTrackId = null
+                                        }
+
+                                        coroutineScope.launch {
+                                            trackDao.setArchived(
+                                                track.id,
+                                                archive
+                                            )
+
+                                            val result =
+                                                snackbarHostState
+                                                    .showSnackbar(
+                                                        message = if (archive) {
+                                                            "Arşivlendi"
+                                                        } else {
+                                                            "Arşivden çıkarıldı"
+                                                        },
+                                                        actionLabel = "Geri al",
+                                                        duration =
+                                                            SnackbarDuration.Short
+                                                    )
+
+                                            if (
+                                                result ==
+                                                SnackbarResult.ActionPerformed
+                                            ) {
+                                                trackDao.setArchived(
+                                                    track.id,
+                                                    !archive
+                                                )
+                                            }
+                                        }
+                                    },
                                     onDeleteTrack = {
                                         openTrackId = null
 
@@ -428,12 +539,27 @@ class MainActivity : ComponentActivity() {
                                         formatEpochDayWithWeekday(
                                             todayEpochDay
                                         ),
-                                    tracks = loadedTracks.map { track ->
-                                        track.toUiModel(
-                                            records = records,
-                                            todayEpochDay =
-                                                todayEpochDay
-                                        )
+                                    tracks = homeTrackModels(
+                                        tracks = loadedTracks.filterNot {
+                                            it.isArchived
+                                        },
+                                        records = records,
+                                        todayEpochDay = todayEpochDay,
+                                        sort = homeSort
+                                    ),
+                                    sort = homeSort,
+                                    onSortChange = {
+                                        homeSort = it
+                                        preferences.homeSort = it
+                                    },
+                                    archivedCount = loadedTracks.count {
+                                        it.isArchived
+                                    },
+                                    onOpenArchive = {
+                                        showArchive = true
+                                    },
+                                    onOpenSettings = {
+                                        showSettings = true
                                     },
                                     onCreateTrack = {
                                         newTrackSuggestionName = null
@@ -525,7 +651,188 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+
+                            Screen.ARCHIVE -> {
+
+                                ArchiveScreen(
+                                    tracks = loadedTracks
+                                        .filter { it.isArchived }
+                                        .map { track ->
+                                            track.toUiModel(
+                                                records = records,
+                                                todayEpochDay =
+                                                    todayEpochDay
+                                            )
+                                        },
+                                    onBack = {
+                                        showArchive = false
+                                    },
+                                    onTrackClick = {
+                                        openTrackId = it
+                                    }
+                                )
+                            }
+
+                            Screen.SETTINGS -> {
+
+                                SettingsScreen(
+                                    themeMode = themeMode,
+                                    trackCount = loadedTracks.size,
+                                    onThemeModeChange = {
+                                        themeMode = it
+                                        preferences.themeMode = it
+                                    },
+                                    onExport = { uri ->
+
+                                        coroutineScope.launch {
+
+                                            val saved = runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    val json = database
+                                                        .readBackup()
+                                                        .toJson()
+
+                                                    contentResolver
+                                                        .openOutputStream(
+                                                            uri,
+                                                            "wt"
+                                                        )
+                                                        ?.use {
+                                                            it.write(
+                                                                json.toByteArray()
+                                                            )
+                                                        }
+                                                        ?: error("No output")
+                                                }
+                                            }.isSuccess
+
+                                            snackbarHostState.showSnackbar(
+                                                message = if (saved) {
+                                                    "Yedek kaydedildi"
+                                                } else {
+                                                    "Yedek kaydedilemedi"
+                                                },
+                                                duration =
+                                                    SnackbarDuration.Short
+                                            )
+                                        }
+                                    },
+                                    onImport = { uri ->
+
+                                        coroutineScope.launch {
+
+                                            val backup = runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    val bytes = contentResolver
+                                                        .openInputStream(uri)
+                                                        ?.use {
+                                                            it.readBytes()
+                                                        }
+                                                        ?: error("No input")
+
+                                                    // Backups are small; refuse
+                                                    // anything implausibly large.
+                                                    check(
+                                                        bytes.size <=
+                                                                MAX_BACKUP_BYTES
+                                                    )
+
+                                                    parseBackup(
+                                                        bytes.decodeToString()
+                                                    )
+                                                }
+                                            }.getOrNull()
+
+                                            if (backup != null) {
+                                                pendingRestore = backup
+                                            } else {
+                                                snackbarHostState.showSnackbar(
+                                                    message =
+                                                        "Bu dosya bir En Son yedeği değil",
+                                                    duration =
+                                                        SnackbarDuration.Short
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onBack = {
+                                        showSettings = false
+                                    }
+                                )
+                            }
                         }
+                    }
+
+                    pendingRestore?.let { backup ->
+                        AlertDialog(
+                            onDismissRequest = {
+                                pendingRestore = null
+                            },
+                            containerColor = SurfacePaper,
+                            title = {
+                                Text(
+                                    text = "Yedek geri yüklensin mi?",
+                                    color = DarkText
+                                )
+                            },
+                            text = {
+                                Text(
+                                    text =
+                                        "Yedekte ${backup.tracks.size} takip ve " +
+                                                "${backup.records.size} kayıt var. " +
+                                                "Bu telefondaki mevcut " +
+                                                "${tracks.orEmpty().size} takip " +
+                                                "bunlarla değiştirilecek.",
+                                    color = DarkText
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        pendingRestore = null
+
+                                        coroutineScope.launch {
+
+                                            val restored = runCatching {
+                                                database.restoreBackup(backup)
+                                            }.isSuccess
+
+                                            if (restored) {
+                                                showSettings = false
+                                            }
+
+                                            snackbarHostState.showSnackbar(
+                                                message = if (restored) {
+                                                    "Yedek yüklendi"
+                                                } else {
+                                                    "Yedek yüklenemedi"
+                                                },
+                                                duration =
+                                                    SnackbarDuration.Short
+                                            )
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Geri yükle",
+                                        color = OverdueTerracotta,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(
+                                    onClick = {
+                                        pendingRestore = null
+                                    }
+                                ) {
+                                    Text(
+                                        text = "Vazgeç",
+                                        color = Plum
+                                    )
+                                }
+                            }
+                        )
                     }
 
                     if (
@@ -560,9 +867,81 @@ private enum class Screen(
 ) {
     LOADING(0),
     HOME(0),
-    DETAIL(1),
+    ARCHIVE(1),
+    SETTINGS(1),
     NEW_TRACK(1),
-    EDIT_TRACK(2)
+    DETAIL(2),
+    EDIT_TRACK(3)
+}
+
+private const val MAX_BACKUP_BYTES = 5 * 1024 * 1024
+
+private fun homeTrackModels(
+    tracks: List<TrackEntity>,
+    records: List<TrackRecordEntity>,
+    todayEpochDay: Long,
+    sort: HomeSort
+): List<TrackUiModel> {
+    val models = tracks.map {
+        it to it.toUiModel(
+            records = records,
+            todayEpochDay = todayEpochDay
+        )
+    }
+
+    val newestFirst =
+        compareByDescending<Pair<TrackEntity, TrackUiModel>> {
+            it.first.createdAtEpochMillis
+        }
+
+    val sorted = when (sort) {
+        HomeSort.NEWEST ->
+            models.sortedWith(newestFirst)
+
+        // Never-logged tracks go last.
+        HomeSort.LONGEST ->
+            models.sortedWith(
+                compareByDescending<Pair<TrackEntity, TrackUiModel>> {
+                    it.second.elapsedDays ?: -1
+                }.then(newestFirst)
+            )
+
+        // Tracks with an interval by days left (late ones first), then
+        // the rest by how long ago they were done, never-logged last.
+        HomeSort.DUE_FIRST ->
+            models.sortedWith(
+                compareBy<Pair<TrackEntity, TrackUiModel>>(
+                    { (track, model) ->
+                        val remaining = track.remainingDays(model)
+
+                        when {
+                            remaining != null -> 0
+                            model.elapsedDays != null -> 1
+                            else -> 2
+                        }
+                    },
+                    { (track, model) ->
+                        track.remainingDays(model)
+                            ?: -(model.elapsedDays ?: 0)
+                    }
+                ).then(newestFirst)
+            )
+    }
+
+    return sorted.map { it.second }
+}
+
+private fun TrackEntity.remainingDays(
+    model: TrackUiModel
+): Int? {
+    if (type == TrackType.PERIOD_START) {
+        return null
+    }
+
+    val interval = repeatIntervalDays ?: return null
+    val elapsed = model.elapsedDays ?: return null
+
+    return interval - elapsed
 }
 
 private fun screenTransition(

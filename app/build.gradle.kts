@@ -40,6 +40,11 @@ android {
     }
 }
 
+ksp {
+    // Exported schemas are kept in git to write safe migrations.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(
         platform(libs.androidx.compose.bom)
